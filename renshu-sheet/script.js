@@ -212,6 +212,9 @@
     const page = document.createElement("div");
     page.className = "sheet-page";
 
+    const inner = document.createElement("div");
+    inner.className = "page-inner";
+
     const header = document.createElement("div");
     header.className = "page-header";
     const title = document.createElement("div");
@@ -222,14 +225,35 @@
     meta.textContent = `名前：　　　　　　　　　　第${kai || "　　"}回　　日付：　　年　　月　　日`;
     header.appendChild(title);
     header.appendChild(meta);
-    page.appendChild(header);
+    inner.appendChild(header);
 
     const body = document.createElement("div");
     body.className = "page-body";
     words.forEach((w, i) => body.appendChild(buildUnit(w, pageIndex * PER_PAGE + i + 1)));
-    page.appendChild(body);
+    inner.appendChild(body);
 
+    page.appendChild(inner);
     return page;
+  }
+
+  // 用紙の印刷可能領域はプリンタ環境によってA4の規定サイズより狭くなることがあるため、
+  // 実際のコンテンツ高さを測って収まらない場合のみ縮小し、必ず1ページに収める。
+  function fitPageToOnePage(pageEl) {
+    const inner = pageEl.querySelector(".page-inner");
+    if (!inner) return;
+    inner.style.transform = "none";
+    const cs = getComputedStyle(pageEl);
+    const paddingV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const availableHeight = pageEl.clientHeight - paddingV;
+    const innerHeight = inner.scrollHeight;
+    if (innerHeight > availableHeight && availableHeight > 0) {
+      const scale = availableHeight / innerHeight;
+      inner.style.transform = `scale(${scale})`;
+    }
+  }
+
+  function fitAllPages() {
+    previewEl.querySelectorAll(".sheet-page").forEach(fitPageToOnePage);
   }
 
   function render() {
@@ -253,6 +277,7 @@
       const pageWords = words.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
       previewEl.appendChild(buildPage(pageWords, p, totalPages));
     }
+    requestAnimationFrame(fitAllPages);
   }
 
   let debounceTimer = null;
@@ -264,11 +289,16 @@
   buildInputUI();
   inputGroupsEl.addEventListener("input", scheduleRender);
   kaiInputEl.addEventListener("input", scheduleRender);
-  printBtn.addEventListener("click", () => window.print());
+  printBtn.addEventListener("click", () => {
+    fitAllPages();
+    window.print();
+  });
   clearBtn.addEventListener("click", () => {
     inputGroupsEl.querySelectorAll("input").forEach((inp) => { inp.value = ""; });
     render();
   });
+  window.addEventListener("beforeprint", fitAllPages);
+  window.addEventListener("resize", () => requestAnimationFrame(fitAllPages));
 
   render();
 })();
