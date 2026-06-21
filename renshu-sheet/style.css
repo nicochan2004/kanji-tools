@@ -1,10 +1,10 @@
 :root {
-  --masu: 2.6cm;
-  --cell: 0.87cm;
+  --masu: 2.75cm;
+  --cell: 0.92cm;
   --gap: 0.6cm;
   --page-margin: 0.3cm;
   --header-h: 0.8cm;
-  --label-h: 1.74cm;
+  --label-h: 1.84cm;
   --accent: #F4A300;
   --line: #5B9BD5;
 }
@@ -191,7 +191,7 @@ body {
   z-index: 2;
   font-family: "Hiragino Mincho ProN", "YuMincho", "MS Mincho", serif;
   font-weight: 300;
-  font-size: 2.3cm;
+  font-size: 2.43cm;
   color: #A6A6A6;
   line-height: 1;
 }

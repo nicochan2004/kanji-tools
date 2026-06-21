@@ -248,9 +248,9 @@
     inner.style.zoom = 1;
     const cs = getComputedStyle(pageEl);
     const paddingV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    // SafariはCSSの@page marginを尊重せず、印刷ダイアログの「ヘッダとフッタをプリント」設定分の
-    // 余白を上下に確保してしまうため、画面表示の計算値より余裕を持たせて縮小する。
-    const SAFETY_RATIO = 0.85;
+    // Safari対策の主な余裕は.sheet-page自体のサイズ(style.css参照)で確保済みなので、
+    // ここでの余裕は印刷フォントレンダリング等の微小な誤差を吸収する程度で十分。
+    const SAFETY_RATIO = 0.95;
     const availableHeight = (pageEl.clientHeight - paddingV) * SAFETY_RATIO;
     const innerHeight = inner.scrollHeight;
     if (innerHeight > availableHeight && availableHeight > 0) {
