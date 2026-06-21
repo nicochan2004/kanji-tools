@@ -238,17 +238,24 @@
 
   // 用紙の印刷可能領域はプリンタ環境によってA4の規定サイズより狭くなることがあるため、
   // 実際のコンテンツ高さを測って収まらない場合のみ縮小し、必ず1ページに収める。
+  // (.sheet-page自体のサイズをA4ぴったりにしないことの説明はstyle.css参照)
+  // 縮小には transform: scale() ではなく zoom を使う。transform は見た目だけを変える
+  // ペイント時の効果でレイアウト上の占有サイズは縮まらないため、zoomの方がブラウザ間で
+  // 一貫した挙動になる。
   function fitPageToOnePage(pageEl) {
     const inner = pageEl.querySelector(".page-inner");
     if (!inner) return;
-    inner.style.transform = "none";
+    inner.style.zoom = 1;
     const cs = getComputedStyle(pageEl);
     const paddingV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    const availableHeight = pageEl.clientHeight - paddingV;
+    // SafariはCSSの@page marginを尊重せず、印刷ダイアログの「ヘッダとフッタをプリント」設定分の
+    // 余白を上下に確保してしまうため、画面表示の計算値より余裕を持たせて縮小する。
+    const SAFETY_RATIO = 0.85;
+    const availableHeight = (pageEl.clientHeight - paddingV) * SAFETY_RATIO;
     const innerHeight = inner.scrollHeight;
     if (innerHeight > availableHeight && availableHeight > 0) {
       const scale = availableHeight / innerHeight;
-      inner.style.transform = `scale(${scale})`;
+      inner.style.zoom = scale;
     }
   }
 

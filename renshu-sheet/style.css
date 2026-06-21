@@ -1,10 +1,10 @@
 :root {
-  --masu: 3cm;
-  --cell: 1cm;
-  --gap: 0.7cm;
+  --masu: 2.6cm;
+  --cell: 0.87cm;
+  --gap: 0.6cm;
   --page-margin: 0.3cm;
   --header-h: 0.8cm;
-  --label-h: 2cm;
+  --label-h: 1.74cm;
   --accent: #F4A300;
   --line: #5B9BD5;
 }
@@ -92,17 +92,17 @@ body {
 }
 
 .sheet-page {
-  width: 21cm;
-  height: 29.7cm;
+  /* A4のフル寸法(21cm×29.7cm)ぴったりにすると、Safariが@page margin:0を
+     完全に尊重せず印刷可能領域の端に余白を確保してしまうため、内容の量に関係なく
+     用紙の高さからあふれて2ページ目(ほぼ白紙)が生成されてしまう(実機検証で確認済み。
+     29cmでも発生し、28cm以下で解消した)。これを避けるため十分小さいサイズにする。 */
+  width: 20.5cm;
+  height: 27.5cm;
   padding: var(--page-margin);
   background: #fff;
   box-shadow: 0 1px 6px rgba(0,0,0,0.25);
   flex-shrink: 0;
   position: relative;
-}
-
-.page-inner {
-  transform-origin: top center;
 }
 
 .page-header {
