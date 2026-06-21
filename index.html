@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漢字学習ツール集</title>
+<style>
+  :root {
+    --bg: #fdf8ee;
+    --accent: #ff8a3d;
+    --ink: #3a3a3a;
+    --line: #ddd2b8;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+  }
+  header h1 { margin: 0; font-size: 1.8rem; }
+  header p { color: #888; margin-top: 0.4rem; }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 1rem 2rem;
+    display: grid;
+    gap: 1rem;
+  }
+  a.card {
+    display: block;
+    background: var(--card);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    padding: 1.2rem 1.4rem;
+    text-decoration: none;
+    color: var(--ink);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  a.card:hover { border-color: var(--accent); }
+  a.card h2 { margin: 0 0 0.3rem; font-size: 1.2rem; }
+  a.card p { margin: 0; color: #888; font-size: 0.9rem; }
+  footer {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #aaa;
+    padding: 1rem;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>📚 漢字学習ツール集</h1>
+    <p>使いたいツールを選んでください</p>
+  </header>
+  <main>
+    <a class="card" href="shojun/">
+      <h2>🖌️ 漢字書き順アプリ</h2>
+      <p>1文字ずつ書き順をアニメーションまたは番号で確認</p>
+    </a>
+    <a class="card" href="shojun-ichiran/">
+      <h2>📋 漢字書き順 一覧アプリ</h2>
+      <p>文章をまとめて入力し、全部の文字の書き順を一覧表示</p>
+    </a>
+    <a class="card" href="hantei/">
+      <h2>✏️ 漢字書き取り判定アプリ</h2>
+      <p>なぞり書きを判定して採点するクイズ</p>
+    </a>
+    <a class="card" href="renshu-sheet/">
+      <h2>📝 漢字練習シートWebアプリ</h2>
+      <p>なぞり書き練習シートを作って印刷</p>
+    </a>
+  </main>
+  <footer>書き順データ: KanjiVG (CC BY-SA 3.0)</footer>
+</body>
+</html>

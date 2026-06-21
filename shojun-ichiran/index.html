@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漢字書き順 一覧アプリ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>📋 漢字書き順 一覧アプリ</h1>
+    <p class="subtitle">調べたい言葉や文章をまとめて入力してね（全部の文字の書き順を一覧で表示します）</p>
+  </header>
+
+  <main>
+    <section class="input-area">
+      <input
+        id="textInput"
+        type="text"
+        placeholder="例: 漢字練習帳"
+        autocomplete="off"
+        enterkeyhint="search"
+      >
+      <button id="searchBtn">調べる</button>
+    </section>
+
+    <p id="message" class="message" hidden></p>
+
+    <section id="resultGrid" class="result-grid"></section>
+  </main>
+
+  <footer class="app-footer">
+    <p>書き順データ: <a href="http://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a>
+      （<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>）</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

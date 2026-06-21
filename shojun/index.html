@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漢字書き順アプリ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>🖌️ 漢字書き順アプリ</h1>
+    <p class="subtitle">調べたい漢字を入力してね</p>
+  </header>
+
+  <main>
+    <section class="input-area">
+      <input
+        id="kanjiInput"
+        type="text"
+        placeholder="例: 漢字"
+        autocomplete="off"
+        enterkeyhint="search"
+      >
+      <button id="searchBtn">調べる</button>
+    </section>
+
+    <nav id="charTabs" class="char-tabs" hidden></nav>
+
+    <section class="mode-switch" role="tablist" aria-label="表示モード">
+      <button id="modeStatic" class="mode-btn active" role="tab" aria-selected="true">
+        📝 静止画（番号）
+      </button>
+      <button id="modeAnimate" class="mode-btn" role="tab" aria-selected="false">
+        ▶️ アニメーション
+      </button>
+    </section>
+
+    <section class="display-area">
+      <div id="message" class="message" hidden></div>
+      <div id="kanjiStage" class="kanji-stage" aria-live="polite"></div>
+    </section>
+
+    <section id="animControls" class="anim-controls" hidden>
+      <div class="anim-buttons">
+        <button id="btnRestart" title="最初から">⏮ 最初から</button>
+        <button id="btnPrev" title="前の画へ">⏪ 前の画</button>
+        <button id="btnPlayPause" title="再生・一時停止">▶️ 再生</button>
+        <button id="btnNext" title="次の画へ">⏩ 次の画</button>
+      </div>
+      <div class="anim-options">
+        <label class="speed-label">
+          速さ
+          <input id="speedRange" type="range" min="200" max="2000" step="100" value="700">
+        </label>
+        <label class="checkbox-label">
+          <input id="showNumbersCheck" type="checkbox" checked>
+          画数の番号を表示する
+        </label>
+      </div>
+      <p id="strokeCount" class="stroke-count"></p>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>書き順データ: <a href="http://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a>
+      （<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>）</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

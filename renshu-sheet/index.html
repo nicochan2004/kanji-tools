@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漢字練習シート</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header no-print">
+      <h1>漢字練習シート</h1>
+      <p class="sub">漢字や送り仮名つきの単語（最大4文字）を最大18個まで入力できます。入力すると下にプレビューが表示されます。</p>
+    </header>
+
+    <section class="input-area no-print">
+      <div class="kai-input-row">
+        <label for="kaiInput">第　　回（数字を入力）</label>
+        <input id="kaiInput" type="text" inputmode="numeric" maxlength="3" placeholder="例: 1">
+      </div>
+      <div id="inputGroups"></div>
+      <div class="actions">
+        <button id="printBtn" class="primary">印刷する</button>
+        <button id="clearBtn" class="secondary">すべて消去</button>
+      </div>
+      <p class="hint">※「印刷する」を押すとA4サイズで印刷されます（iPhoneはAirPrint対応のWi-Fiプリンタが必要です）。</p>
+    </section>
+
+    <section id="preview" class="preview-area"></section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

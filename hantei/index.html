@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>漢字書き取り判定アプリ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ① 出題リスト入力画面 -->
+  <section id="screenSetup" class="screen">
+    <header class="app-header">
+      <h1>✏️ 漢字書き取り判定アプリ</h1>
+      <p class="subtitle">練習したい漢字を順番に入力してね</p>
+    </header>
+
+    <main class="setup-main">
+      <label for="kanjiListInput" class="setup-label">出題する漢字（順番に練習します）</label>
+      <textarea
+        id="kanjiListInput"
+        rows="3"
+        placeholder="例: 林 森 校 国 語  （スペースや改行で区切ってもまとめて書いてもOK）"
+      ></textarea>
+      <p class="setup-hint">同じ漢字を2回入れると、2回練習できます。</p>
+
+      <div class="setup-options">
+        <span class="setup-options-label">判定の厳しさ</span>
+        <div class="strictness-buttons" role="group" aria-label="判定の厳しさ">
+          <button type="button" class="strictness-btn" data-level="loose">ゆるめ</button>
+          <button type="button" class="strictness-btn active" data-level="normal">標準</button>
+          <button type="button" class="strictness-btn" data-level="strict">きびしめ</button>
+        </div>
+      </div>
+
+      <button id="startBtn" class="primary-btn">はじめる ▶</button>
+      <p id="setupMessage" class="setup-message" hidden></p>
+    </main>
+
+    <footer class="app-footer">
+      <p>書き順データ: <a href="http://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a>
+        （<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>）</p>
+    </footer>
+  </section>
+
+  <!-- ② 出題（なぞり書き判定）画面 -->
+  <section id="screenQuiz" class="screen" hidden>
+    <header class="quiz-header">
+      <button id="quitBtn" class="quit-btn" title="出題リストの編集に戻る">← 戻る</button>
+      <div class="quiz-progress">
+        <span id="quizProgressText">1 / 10問目</span>
+        <div class="progress-bar"><div id="quizProgressFill" class="progress-fill"></div></div>
+      </div>
+      <button id="resetCharBtn" class="reset-btn" title="この漢字をやり直す">↺ やり直す</button>
+    </header>
+
+    <main class="quiz-main">
+      <div id="kanjiStageWrap" class="kanji-stage-wrap">
+        <div id="kanjiStage" class="kanji-stage" aria-live="polite"></div>
+      </div>
+
+      <p id="strokeInfo" class="stroke-info"></p>
+      <p id="feedbackMessage" class="feedback-message" aria-live="assertive"></p>
+    </main>
+  </section>
+
+  <!-- ③ 採点結果画面 -->
+  <section id="screenResult" class="screen" hidden>
+    <header class="app-header">
+      <h1>🎉 けっか発表</h1>
+    </header>
+
+    <main class="result-main">
+      <div class="score-circle">
+        <span id="scoreNumber">0</span><span class="score-unit">点</span>
+      </div>
+      <p id="scoreSummaryText" class="score-summary-text"></p>
+
+      <ul id="resultList" class="result-list"></ul>
+
+      <div class="result-actions">
+        <button id="retrySameBtn" class="primary-btn">同じリストでもう一度</button>
+        <button id="backToSetupBtn" class="secondary-btn">リストを変更する</button>
+      </div>
+    </main>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>

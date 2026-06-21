@@ -1,0 +1,254 @@
+:root {
+  --masu: 3cm;
+  --cell: 1cm;
+  --gap: 0.7cm;
+  --page-margin: 0.3cm;
+  --header-h: 0.8cm;
+  --label-h: 2cm;
+  --accent: #F4A300;
+  --line: #5B9BD5;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+  background: #f2f2f2;
+  color: #222;
+}
+
+#app { max-width: 100%; }
+
+.app-header {
+  padding: 16px 16px 8px;
+  background: #fff;
+}
+.app-header h1 { margin: 0 0 4px; font-size: 20px; }
+.app-header .sub { margin: 0; font-size: 13px; color: #666; }
+
+.input-area {
+  padding: 8px 16px 16px;
+  background: #fff;
+}
+
+.kai-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.kai-input-row label { font-size: 13px; color: #555; }
+.kai-input-row input {
+  width: 70px;
+  height: 32px;
+  text-align: center;
+  font-size: 14px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+}
+
+.input-group {
+  margin: 12px 0;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.input-group h3 { margin: 0 0 6px; font-size: 13px; color: #888; font-weight: normal; }
+.input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.input-cell { display: flex; flex-direction: column; align-items: center; }
+.input-cell label { font-size: 11px; color: #999; margin-bottom: 2px; }
+.input-cell input {
+  width: 64px;
+  height: 44px;
+  text-align: center;
+  font-size: 20px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  font-family: "Hiragino Mincho ProN", "YuMincho", "MS Mincho", serif;
+}
+.input-cell input:invalid { border-color: #e36; }
+
+.actions { display: flex; gap: 10px; margin-top: 14px; }
+.actions button {
+  flex: 1;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 8px;
+  border: none;
+}
+.actions .primary { background: var(--accent); color: #fff; font-weight: bold; }
+.actions .secondary { background: #e5e5e5; color: #444; }
+.hint { font-size: 12px; color: #888; margin-top: 8px; }
+
+.preview-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 40px;
+  overflow-x: auto;
+}
+
+.sheet-page {
+  width: 21cm;
+  height: 29.7cm;
+  padding: var(--page-margin);
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+  flex-shrink: 0;
+}
+
+.page-header {
+  direction: ltr;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--accent);
+  color: #fff;
+  padding: 0 0.2cm;
+  font-size: 10pt;
+  font-weight: bold;
+  box-sizing: border-box;
+}
+.page-header .meta { font-size: 8pt; font-weight: normal; }
+
+.page-body {
+  direction: rtl;
+  display: flex;
+  justify-content: center;
+  gap: var(--gap);
+  margin-top: 0.15cm;
+}
+
+.unit {
+  direction: rtl;
+  display: flex;
+  gap: var(--gap);
+}
+
+.practice-col {
+  direction: ltr;
+  display: flex;
+  flex-direction: column;
+}
+
+.masu {
+  direction: ltr;
+  position: relative;
+  width: var(--masu);
+  height: var(--masu);
+  border: 1px solid #000;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.masu::before, .masu::after {
+  content: "";
+  position: absolute;
+  background: var(--line);
+  opacity: 0.55;
+  z-index: 1;
+}
+.masu::before { left: 50%; top: 0; bottom: 0; width: 1px; }
+.masu::after { top: 50%; left: 0; right: 0; height: 1px; }
+
+.masu-slot-wrap {
+  position: relative;
+}
+
+.masu-slot-number {
+  position: absolute;
+  top: 4px;
+  left: 100%;
+  margin-left: 0.15cm;
+  width: 0.6cm;
+  height: 0.6cm;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.3px solid #555;
+  border-radius: 50%;
+  background: #fff;
+  z-index: 3;
+  font-size: 12pt;
+  color: #333;
+  line-height: 1;
+}
+
+.masu-char {
+  position: relative;
+  z-index: 2;
+  font-family: "Hiragino Mincho ProN", "YuMincho", "MS Mincho", serif;
+  font-weight: 300;
+  font-size: 2.3cm;
+  color: #A6A6A6;
+  line-height: 1;
+}
+
+.masu-stroke {
+  position: relative;
+  z-index: 2;
+  width: 92%;
+  height: 92%;
+}
+.masu-stroke svg { width: 100%; height: 100%; display: block; }
+
+.sentence-col {
+  direction: ltr;
+  display: flex;
+  flex-direction: column;
+}
+
+.sentence-label {
+  height: var(--label-h);
+  width: calc(var(--cell) * 2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9pt;
+  font-weight: bold;
+  color: #2E5395;
+  box-sizing: border-box;
+}
+
+.sentence-grid { display: flex; flex-direction: column; }
+.sentence-row { display: flex; }
+.sentence-cell {
+  width: var(--cell);
+  height: var(--cell);
+  border: 1px solid #000;
+  box-sizing: border-box;
+  margin-left: -1px;
+  margin-top: -1px;
+}
+.sentence-row:first-child .sentence-cell { margin-top: 0; }
+.sentence-cell:first-child { margin-left: 0; }
+
+.no-print { }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .preview-area { padding: 0; gap: 0; }
+  .sheet-page {
+    box-shadow: none;
+    margin: 0;
+    page-break-after: always;
+    break-after: page;
+  }
+  .sheet-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
