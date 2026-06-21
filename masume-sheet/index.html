@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>マス目シート作成</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header no-print">
+      <h1>マス目シート作成</h1>
+      <p class="sub">列数・行数・余白を指定すると、A4サイズのマス目シート（十字の点線ガイド入り）のプレビューが表示されます。自由な字の練習や下書きに使えます。</p>
+    </header>
+
+    <section class="input-area no-print">
+      <div class="field-row">
+        <label for="colsInput">列数</label>
+        <input id="colsInput" type="number" min="1" max="20" value="6">
+        <label for="rowsInput">行数</label>
+        <input id="rowsInput" type="number" min="1" max="20" value="9">
+      </div>
+      <div class="field-row">
+        <label for="marginXInput">左右の余白(mm)</label>
+        <input id="marginXInput" type="number" min="0" max="50" step="0.5" value="15">
+        <label for="marginYInput">上下の余白(mm)</label>
+        <input id="marginYInput" type="number" min="0" max="50" step="0.5" value="14">
+      </div>
+      <div class="field-row">
+        <label for="crossCheck">十字の点線ガイド</label>
+        <input id="crossCheck" type="checkbox" checked>
+      </div>
+      <div class="actions">
+        <button id="printBtn" class="primary">印刷する</button>
+        <button id="resetBtn" class="secondary">初期値に戻す</button>
+      </div>
+      <p class="hint">※「印刷する」を押すとA4サイズで印刷されます（iPhoneはAirPrint対応のWi-Fiプリンタが必要です）。</p>
+    </section>
+
+    <section id="preview" class="preview-area"></section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

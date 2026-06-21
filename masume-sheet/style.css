@@ -1,0 +1,123 @@
+:root {
+  --accent: #F4A300;
+  --line: #999;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+  background: #f2f2f2;
+  color: #222;
+}
+
+#app { max-width: 100%; }
+
+.app-header {
+  padding: 16px 16px 8px;
+  background: #fff;
+}
+.app-header h1 { margin: 0 0 4px; font-size: 20px; }
+.app-header .sub { margin: 0; font-size: 13px; color: #666; }
+
+.input-area {
+  padding: 8px 16px 16px;
+  background: #fff;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.field-row label { font-size: 13px; color: #555; }
+.field-row input[type="number"] {
+  width: 70px;
+  height: 32px;
+  text-align: center;
+  font-size: 14px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+}
+.field-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.actions { display: flex; gap: 10px; margin-top: 14px; }
+.actions button {
+  flex: 1;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 8px;
+  border: none;
+}
+.actions .primary { background: var(--accent); color: #fff; font-weight: bold; }
+.actions .secondary { background: #e5e5e5; color: #444; }
+.hint { font-size: 12px; color: #888; margin-top: 8px; }
+
+.preview-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 40px;
+  overflow-x: auto;
+}
+
+.sheet-page {
+  width: 21cm;
+  height: 29.7cm;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-sheet {
+  display: grid;
+  border-top: 1px solid #000;
+  border-left: 1px solid #000;
+}
+
+.grid-cell {
+  border-right: 1px solid #000;
+  border-bottom: 1px solid #000;
+  position: relative;
+}
+
+.grid-cell.cross::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--line);
+}
+.grid-cell.cross::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--line);
+}
+
+.no-print { }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .preview-area { padding: 0; gap: 0; overflow: visible; }
+  .sheet-page { box-shadow: none; margin: 0; }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
