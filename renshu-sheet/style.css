@@ -98,6 +98,11 @@ body {
   background: #fff;
   box-shadow: 0 1px 6px rgba(0,0,0,0.25);
   flex-shrink: 0;
+  position: relative;
+}
+
+.page-inner {
+  transform-origin: top center;
 }
 
 .page-header {
@@ -235,16 +240,16 @@ body {
 @media print {
   body { background: #fff; }
   .no-print { display: none !important; }
-  .preview-area { padding: 0; gap: 0; }
+  /* overflow-x: auto はoverflow-yも暗黙的にautoにし、印刷時のページフラグメンテーション計算を乱して
+     空白ページが追加される原因になるため、印刷時はvisibleに戻す */
+  .preview-area { padding: 0; gap: 0; overflow: visible; }
   .sheet-page {
     box-shadow: none;
     margin: 0;
-    page-break-after: always;
-    break-after: page;
   }
-  .sheet-page:last-child {
-    page-break-after: auto;
-    break-after: auto;
+  .sheet-page + .sheet-page {
+    page-break-before: always;
+    break-before: page;
   }
 }
 
