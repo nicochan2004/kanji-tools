@@ -41,10 +41,10 @@ body {
 }
 
 .list-main, .crop-main {
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .file-drop {
@@ -94,20 +94,34 @@ body {
 .actions .primary:disabled { background: #b9cfe8; }
 .actions .secondary { background: #e5e5e5; color: #444; }
 
-.crop-controls { display: flex; flex-direction: column; gap: 8px; }
+.crop-controls { display: flex; flex-direction: column; gap: 6px; }
 
+.crop-stage-wrap {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* 写真が縦長の場合、幅いっぱいに表示すると操作ボタンが画面下に
+   隠れてしまうため、高さに上限を設けてキャンバスを縮小表示する。
+   crop-stageはキャンバスの実寸にぴったり合わせて(余白なしで)
+   shrink-wrapさせ、枠ドラッグの%座標計算とズレないようにする。 */
 .crop-stage {
   position: relative;
-  width: 100%;
+  display: inline-block;
+  max-width: 100%;
   background: #222;
   border-radius: 10px;
   overflow: hidden;
   touch-action: none;
+  line-height: 0;
 }
 .crop-stage canvas {
-  width: 100%;
-  height: auto;
   display: block;
+  max-width: 100%;
+  max-height: 42vh;
+  width: auto;
+  height: auto;
 }
 
 .crop-dim {
@@ -204,6 +218,20 @@ body {
   gap: 8px;
   margin-top: 10px;
 }
+
+#printBtn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+}
+#printBtn:disabled { background: #b9cfe8; }
 .mode-btn {
   flex: 1;
   padding: 10px;

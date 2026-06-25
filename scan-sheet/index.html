@@ -22,8 +22,8 @@
         <span class="file-drop-icon">📷</span>
         <span class="file-drop-text">ページを撮る・追加する</span>
       </label>
-      <input id="fileInput" type="file" accept="image/*" capture="environment" multiple hidden>
-      <p class="hint">※ プリントの4辺がなるべく全部写るように、できるだけ正面から撮影してください。複数ページをまとめて選ぶこともできます。</p>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+      <p class="hint">※ プリントの4辺がなるべく全部写るように、できるだけ正面から撮影してください。1回の操作で1ページ追加されます。</p>
 
       <div class="actions">
         <button id="toPrintBtn" class="primary" type="button" disabled>🖨️ 印刷プレビューへ ▶</button>
@@ -38,14 +38,16 @@
       <h2 id="cropTitle">かたむき補正・切り出し</h2>
     </header>
     <main class="crop-main">
-      <div id="cropStage" class="crop-stage">
-        <canvas id="cropCanvas"></canvas>
-        <div class="crop-dim" id="cropDim"></div>
-        <div class="crop-box" id="cropBox">
-          <div class="crop-handle" data-handle="tl"></div>
-          <div class="crop-handle" data-handle="tr"></div>
-          <div class="crop-handle" data-handle="bl"></div>
-          <div class="crop-handle" data-handle="br"></div>
+      <div class="crop-stage-wrap">
+        <div id="cropStage" class="crop-stage">
+          <canvas id="cropCanvas"></canvas>
+          <div class="crop-dim" id="cropDim"></div>
+          <div class="crop-box" id="cropBox">
+            <div class="crop-handle" data-handle="tl"></div>
+            <div class="crop-handle" data-handle="tr"></div>
+            <div class="crop-handle" data-handle="bl"></div>
+            <div class="crop-handle" data-handle="br"></div>
+          </div>
         </div>
       </div>
 
@@ -61,7 +63,6 @@
         </div>
       </div>
 
-      <p class="hint">枠の四すみをドラッグして、プリント部分だけを囲んでください。</p>
       <div class="actions">
         <button id="cropNextBtn" class="primary" type="button">この範囲で確定 ▶</button>
       </div>
@@ -77,15 +78,14 @@
         <button id="modeBwBtn" class="mode-btn active" type="button">⬛ 白黒</button>
         <button id="modeColorBtn" class="mode-btn" type="button">🌈 カラー</button>
       </div>
+      <button id="printBtn" class="primary" type="button">🖨️ 印刷する</button>
     </header>
 
     <section class="preview-area" id="previewArea"></section>
 
     <div class="actions no-print">
-      <button id="printBtn" class="primary" type="button">🖨️ 印刷する</button>
       <button id="restartBtn" class="secondary" type="button">最初からやり直す</button>
     </div>
-    <p class="hint no-print">※「印刷する」を押すとA4サイズで印刷されます。白黒のままだとインクの節約になります。</p>
   </section>
 
 </div>
