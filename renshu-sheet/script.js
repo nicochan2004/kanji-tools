@@ -65,6 +65,44 @@
     return /[一-鿿㐀-䶿]/.test(ch);
   }
 
+  function isHiragana(ch) {
+    return /[぀-ゟ]/.test(ch);
+  }
+
+  // 単語を「1マスに入れる文字の組」の配列に変換する。
+  // 送り仮名(連続するひらがな)は2文字ずつペアにして1マスに収める。
+  function buildBaseSlots(word) {
+    const slots = [];
+    let i = 0;
+    while (i < word.length) {
+      const ch = word[i];
+      const nextCh = word[i + 1];
+      if (isHiragana(ch) && nextCh && isHiragana(nextCh)) {
+        slots.push([ch, nextCh]);
+        i += 2;
+      } else {
+        slots.push([ch]);
+        i += 1;
+      }
+    }
+    return slots;
+  }
+
+  // 4文字の単語のみ、ひらがなペアでマス数を圧縮した分だけ単語を繰り返して
+  // 9マスを使い切り、複数回練習できるようにする。それ以外の文字数は1マス1文字のまま。
+  function buildCellSlots(word) {
+    if (word.length !== 4) {
+      return word.split("").map((ch) => [ch]);
+    }
+    const base = buildBaseSlots(word);
+    if (base.length === 0) return [];
+    const slots = [];
+    while (slots.length + base.length <= MASU_PER_WORD) {
+      slots.push(...base);
+    }
+    return slots;
+  }
+
   async function fetchKvg(ch) {
     if (kvgCache.has(ch)) return kvgCache.get(ch);
     try {
@@ -161,16 +199,35 @@
     const practiceCol = document.createElement("div");
     practiceCol.className = "practice-col";
 
-    const masuEls = [];
+    const cellSlots = buildCellSlots(word);
+    const isPairMode = word.length === 4;
+    const charTargets = []; // { container, ch, small } : KVGロード後にストローク表示へ差し替える対象
     for (let i = 0; i < MASU_PER_WORD; i++) {
       const masu = document.createElement("div");
       masu.className = "masu";
-      const ch = i < word.length ? word[i] : "";
-      if (ch) {
+      const slot = cellSlots[i];
+      if (slot && slot.length === 2) {
+        // 送り仮名のペアは縦書き(上下スタック)で1マスに収める
+        masu.classList.add("masu-paired");
+        slot.forEach((ch) => {
+          const half = document.createElement("div");
+          half.className = "masu-half";
+          const charEl = document.createElement("div");
+          charEl.className = "masu-char masu-char-half";
+          charEl.textContent = ch;
+          half.appendChild(charEl);
+          masu.appendChild(half);
+          charTargets.push({ container: half, ch, small: true });
+        });
+      } else if (slot && slot.length === 1) {
+        const ch = slot[0];
+        // ペア化できず1文字だけ残った送り仮名は、ペア表示と揃えて小さい文字・上寄せにする
+        const isLoneKana = isPairMode && isHiragana(ch);
         const charEl = document.createElement("div");
-        charEl.className = "masu-char";
+        charEl.className = "masu-char" + (isLoneKana ? " masu-char-lone-kana" : "");
         charEl.textContent = ch;
         masu.appendChild(charEl);
+        charTargets.push({ container: masu, ch, small: isLoneKana });
       }
       if (i === 0) {
         // masuはoverflow:hiddenなので、欄外に丸数字を出すためラッパーで囲む
@@ -185,25 +242,22 @@
       } else {
         practiceCol.appendChild(masu);
       }
-      masuEls.push(masu);
     }
     unit.appendChild(practiceCol);
     unit.appendChild(buildSentenceCol());
 
-    for (let i = 0; i < word.length; i++) {
-      const ch = word[i];
+    charTargets.forEach(({ container, ch, small }) => {
       const showNumbers = isKanji(ch); // 番号表示は漢字のみ。ひらがな等も同じ線の細さで統一する
       fetchKvg(ch).then((data) => {
         if (!data) return; // 取得失敗時はプレーンな文字表示のまま
-        const masu = masuEls[i];
-        const charEl = masu.querySelector(".masu-char");
+        const charEl = container.querySelector(".masu-char");
         if (charEl) charEl.remove();
         const wrap = document.createElement("div");
-        wrap.className = "masu-stroke";
+        wrap.className = "masu-stroke" + (small ? " masu-stroke-small" : "");
         wrap.appendChild(buildStrokeSvg(data, showNumbers));
-        masu.appendChild(wrap);
+        container.appendChild(wrap);
       });
-    }
+    });
 
     return unit;
   }
