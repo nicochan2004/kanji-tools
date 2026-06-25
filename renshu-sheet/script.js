@@ -344,24 +344,36 @@
     return pdf;
   }
 
-  // window.open()でPDFを新規タブに開いて印刷する方式も試したが、iOS Safariは
-  // 非同期処理(await)を挟んだ後のwindow.open()をユーザー操作起因と認識せず
-  // ポップアップとしてブロックしてしまい、ボタンが反応しないように見える問題があった。
-  // ダウンロード(pdf.save)はこの制限を受けないため、PDFを保存してそれを開いて
-  // 印刷してもらう方式に統一する。
+  // PDF生成後にwindow.open()を呼ぶと、iOS Safariは非同期処理(await)を挟んだ後の
+  // window.open()をユーザー操作起因と認識せずポップアップとしてブロックしてしまう。
+  // そのためクリック直後(非同期処理が始まる前)の時点でいったん空のタブを同期的に
+  // 開いておき、PDFが出来上がってからそのタブのlocationをPDFに差し替える。
+  // こうすることでPCでは毎回ダウンロードされる煩わしさがなくなり、タブで開くだけになる。
   async function savePdf() {
     if (previewEl.querySelectorAll(".sheet-page").length === 0) {
       alert("漢字や単語を入力してください。");
       return;
+    }
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write("<title>漢字練習シート</title><p style='font-family:sans-serif;padding:20px;color:#666;'>PDFを生成中です…</p>");
     }
     const originalLabel = pdfBtn.textContent;
     pdfBtn.disabled = true;
     pdfBtn.textContent = "準備中...";
     try {
       const pdf = await buildPdfDoc();
-      const kai = kaiInputEl.value.trim();
-      pdf.save(`漢字練習シート${kai ? "_第" + kai + "回" : ""}.pdf`);
+      const url = URL.createObjectURL(pdf.output("blob"));
+      if (win) {
+        win.location.href = url;
+      } else {
+        // ポップアップとして開けなかった場合はダウンロードにフォールバックする
+        const kai = kaiInputEl.value.trim();
+        pdf.save(`漢字練習シート${kai ? "_第" + kai + "回" : ""}.pdf`);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
     } catch (e) {
+      if (win) win.close();
       // PDFライブラリが読み込めない場合(オフライン等)は従来の印刷方法にフォールバックする
       fitAllPages();
       window.print();
