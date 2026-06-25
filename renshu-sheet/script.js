@@ -327,9 +327,26 @@
   const SHEET_W_MM = 205; // .sheet-pageのwidth(20.5cm)と一致させる
   const SHEET_H_MM = 275; // .sheet-pageのheight(27.5cm)と一致させる
 
-  async function savePdf() {
+  async function buildPdfDoc() {
     const pages = previewEl.querySelectorAll(".sheet-page");
-    if (pages.length === 0) {
+    if (pages.length === 0) return null;
+    fitAllPages();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    const offsetX = (PDF_PAGE_W_MM - SHEET_W_MM) / 2;
+    const offsetY = (PDF_PAGE_H_MM - SHEET_H_MM) / 2;
+    for (let i = 0; i < pages.length; i++) {
+      const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", offsetX, offsetY, SHEET_W_MM, SHEET_H_MM);
+    }
+    return pdf;
+  }
+
+  async function savePdf() {
+    if (previewEl.querySelectorAll(".sheet-page").length === 0) {
       alert("漢字や単語を入力してください。");
       return;
     }
@@ -337,18 +354,7 @@
     pdfBtn.disabled = true;
     pdfBtn.textContent = "PDF生成中...";
     try {
-      fitAllPages();
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-      const offsetX = (PDF_PAGE_W_MM - SHEET_W_MM) / 2;
-      const offsetY = (PDF_PAGE_H_MM - SHEET_H_MM) / 2;
-      for (let i = 0; i < pages.length; i++) {
-        const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: "#ffffff" });
-        const imgData = canvas.toDataURL("image/jpeg", 0.92);
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, "JPEG", offsetX, offsetY, SHEET_W_MM, SHEET_H_MM);
-      }
+      const pdf = await buildPdfDoc();
       const kai = kaiInputEl.value.trim();
       pdf.save(`漢字練習シート${kai ? "_第" + kai + "回" : ""}.pdf`);
     } catch (e) {
@@ -356,6 +362,63 @@
     } finally {
       pdfBtn.disabled = false;
       pdfBtn.textContent = originalLabel;
+    }
+  }
+
+  // 非表示iframeにPDFを読み込んでprint()を呼ぶことで、ダウンロード等の痕跡を残さず
+  // システムの印刷シートだけを表示する。PDFとして真のページを渡すことで、HTML+CSSの
+  // 印刷ページ処理(機種ごとに余白やスケールの扱いが違い、ずれ・見切れの原因になっていた)
+  // を経由せず、ブラウザのPDF表示・印刷エンジンに任せるため結果が安定する。
+  let printFrame = null;
+  function printPdfBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    if (printFrame) printFrame.remove();
+    printFrame = document.createElement("iframe");
+    printFrame.style.position = "fixed";
+    printFrame.style.left = "-10000px";
+    printFrame.style.top = "0";
+    printFrame.style.width = "600px";
+    printFrame.style.height = "800px";
+    printFrame.style.border = "0";
+    printFrame.src = url;
+    document.body.appendChild(printFrame);
+    printFrame.onload = () => {
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
+        } catch (e) {
+          window.open(url, "_blank");
+        }
+      }, 150);
+    };
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      if (printFrame) {
+        printFrame.remove();
+        printFrame = null;
+      }
+    }, 60000);
+  }
+
+  async function printSheet() {
+    const originalLabel = printBtn.textContent;
+    printBtn.disabled = true;
+    printBtn.textContent = "準備中...";
+    try {
+      const pdf = await buildPdfDoc();
+      if (!pdf) {
+        alert("漢字や単語を入力してください。");
+        return;
+      }
+      printPdfBlob(pdf.output("blob"));
+    } catch (e) {
+      // PDFライブラリが読み込めない場合(オフライン等)は従来の印刷方法にフォールバックする
+      fitAllPages();
+      window.print();
+    } finally {
+      printBtn.disabled = false;
+      printBtn.textContent = originalLabel;
     }
   }
 
@@ -392,10 +455,7 @@
   buildInputUI();
   inputGroupsEl.addEventListener("input", scheduleRender);
   kaiInputEl.addEventListener("input", scheduleRender);
-  printBtn.addEventListener("click", () => {
-    fitAllPages();
-    window.print();
-  });
+  printBtn.addEventListener("click", printSheet);
   pdfBtn.addEventListener("click", savePdf);
   clearBtn.addEventListener("click", () => {
     inputGroupsEl.querySelectorAll("input").forEach((inp) => { inp.value = ""; });
