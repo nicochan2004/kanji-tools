@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>書き込み消去シート</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ① 写真選択 -->
+  <section id="screenLoad" class="screen">
+    <header class="app-header no-print">
+      <h1>🧽 書き込み消去シート</h1>
+      <p class="sub">答えを書き込んだ問題集を撮影すると、書き込みだけを消してまっさらな状態でA4印刷できます。くり返し練習に使えます。</p>
+    </header>
+    <main class="load-main">
+      <label class="file-drop" for="fileInput">
+        <span class="file-drop-icon">📷</span>
+        <span class="file-drop-text">タップして写真を撮る・選ぶ</span>
+      </label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+      <p class="hint">※ プリントの4辺がなるべく全部写るように、できるだけ正面から撮影してください。</p>
+    </main>
+  </section>
+
+  <!-- ② かたむき補正・トリミング -->
+  <section id="screenCrop" class="screen" hidden>
+    <header class="quiz-header">
+      <button id="cropBackBtn" class="back-btn" type="button">← 写真を選び直す</button>
+      <h2>かたむき補正・切り出し</h2>
+    </header>
+    <main class="crop-main">
+      <div id="cropStage" class="crop-stage">
+        <canvas id="cropCanvas"></canvas>
+        <div class="crop-dim" id="cropDim"></div>
+        <div class="crop-box" id="cropBox">
+          <div class="crop-handle" data-handle="tl"></div>
+          <div class="crop-handle" data-handle="tr"></div>
+          <div class="crop-handle" data-handle="bl"></div>
+          <div class="crop-handle" data-handle="br"></div>
+        </div>
+      </div>
+
+      <div class="crop-controls">
+        <div class="field-row">
+          <button id="rotateLeftBtn" class="icon-btn" type="button" title="左に90度回転">↺ 90°</button>
+          <button id="rotateRightBtn" class="icon-btn" type="button" title="右に90度回転">↻ 90°</button>
+        </div>
+        <div class="field-row">
+          <label for="rotateSlider">かたむき補正</label>
+          <input id="rotateSlider" type="range" min="-15" max="15" step="0.5" value="0">
+          <span id="rotateValueLabel" class="value-label">0°</span>
+        </div>
+      </div>
+
+      <p class="hint">枠の四すみをドラッグして、プリント部分だけを囲んでください。</p>
+      <div class="actions">
+        <button id="cropNextBtn" class="primary" type="button">この範囲で次へ ▶</button>
+      </div>
+    </main>
+  </section>
+
+  <!-- ③ 書き込み消去 -->
+  <section id="screenErase" class="screen" hidden>
+    <header class="quiz-header">
+      <button id="eraseBackBtn" class="back-btn" type="button">← 切り出しに戻る</button>
+      <h2>書き込み消去</h2>
+    </header>
+    <main class="erase-main">
+      <div id="eraseStage" class="erase-stage">
+        <canvas id="eraseCanvas"></canvas>
+        <div id="loadingOverlay" class="loading-overlay" hidden><span>消去中…</span></div>
+        <p id="pickGuide" class="pick-guide" hidden>👆 消したい書き込みの部分を、画像の上でタップしてください</p>
+      </div>
+
+      <div class="actions">
+        <button id="eraseBtn" class="primary big" type="button">🧽 書き込み消去</button>
+      </div>
+      <p id="eraseHint" class="hint">ボタンを押して、消したい書き込みの色を1か所タップしてください。</p>
+
+      <details class="advanced">
+        <summary>くわしい設定</summary>
+        <div class="field-row">
+          <label for="toleranceSlider">消す範囲の広さ</label>
+          <input id="toleranceSlider" type="range" min="5" max="80" step="1" value="30">
+        </div>
+        <div id="colorChips" class="color-chips"></div>
+
+        <div class="field-row">
+          <button id="brushModeBtn" class="secondary" type="button">🖌️ 手で消す（消しゴム）</button>
+          <label for="brushSizeSlider">ふとさ</label>
+          <input id="brushSizeSlider" type="range" min="5" max="60" step="1" value="20">
+        </div>
+        <p class="hint small">消しゴムモード中は、消したい部分を直接なぞってください。もう一度押すと解除されます。</p>
+
+        <div class="field-row">
+          <button id="undoBtn" class="secondary" type="button">↺ ひとつ前に戻す</button>
+          <button id="resetEraseBtn" class="secondary" type="button">最初の状態に戻す</button>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button id="toPrintBtn" class="primary" type="button">印刷画面へ ▶</button>
+      </div>
+    </main>
+  </section>
+
+  <!-- ④ 印刷 -->
+  <section id="screenPrint" class="screen" hidden>
+    <header class="app-header no-print">
+      <h2>印刷プレビュー</h2>
+    </header>
+
+    <section class="preview-area">
+      <div class="sheet-page" id="printPage">
+        <img id="printImage" alt="消去後のシート">
+      </div>
+    </section>
+
+    <div class="actions no-print">
+      <button id="printBtn" class="primary" type="button">🖨️ 印刷する</button>
+      <button id="saveImageBtn" class="secondary" type="button">💾 画像を保存</button>
+      <button id="restartBtn" class="secondary" type="button">別の写真でやり直す</button>
+    </div>
+    <p class="hint no-print">※「印刷する」を押すとA4サイズで印刷されます（iPhoneはAirPrint対応のWi-Fiプリンタが必要です）。</p>
+  </section>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
