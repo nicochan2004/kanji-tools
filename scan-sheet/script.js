@@ -398,14 +398,33 @@
 
   // ---------- ③ 印刷プレビュー ----------
 
-  // 撮影時の照明や紙の色味の影響で、本来白い背景がわずかにグレーになり
-  // 印刷インクを消費してしまう。ほぼ白に近い画素だけを完全な白にすることで、
-  // 意図的なグレーハッチング(網掛け)など、これより濃い画素はそのまま残す。
-  const WHITE_CUTOFF = 235;
+  // 撮影時の照明ムラ(紙の上端が暗い、中央だけ明るい等)があると、固定の
+  // しきい値では場所によって白くなったりならなかったりする。大きくぼかした
+  // 輝度マップを「その場所の背景の明るさ」とみなし、実際の輝度がそれに
+  // 近い(=ゆっくり変化する照明ムラの範囲内)画素だけを白にする。これにより
+  // 照明ムラは打ち消しつつ、文字やグレーハッチングなど局所的にはっきり
+  // 暗い画素はそのまま残す。
+  const NEAR_BACKGROUND_RATIO = 0.94;
+  const BG_MAP_SAMPLE_SIZE = 16;
+
+  function buildBackgroundLumaMap(c) {
+    const w = c.width;
+    const h = c.height;
+    const small = document.createElement("canvas");
+    small.width = BG_MAP_SAMPLE_SIZE;
+    small.height = Math.max(1, Math.round((BG_MAP_SAMPLE_SIZE * h) / w));
+    small.getContext("2d").drawImage(c, 0, 0, small.width, small.height);
+    const map = document.createElement("canvas");
+    map.width = w;
+    map.height = h;
+    map.getContext("2d").drawImage(small, 0, 0, w, h);
+    return map.getContext("2d").getImageData(0, 0, w, h).data;
+  }
 
   function getGrayDataURL(page) {
     if (page.grayDataURL) return page.grayDataURL;
     const c = page.colorCanvas;
+    const bgData = buildBackgroundLumaMap(c);
     const tmp = document.createElement("canvas");
     tmp.width = c.width;
     tmp.height = c.height;
@@ -414,9 +433,10 @@
     const imgData = tctx.getImageData(0, 0, tmp.width, tmp.height);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
-      let v = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-      if (v >= WHITE_CUTOFF) v = 255;
-      d[i] = d[i + 1] = d[i + 2] = v;
+      const v = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      const bg = bgData[i] * 0.299 + bgData[i + 1] * 0.587 + bgData[i + 2] * 0.114;
+      const out = v >= bg * NEAR_BACKGROUND_RATIO ? 255 : v;
+      d[i] = d[i + 1] = d[i + 2] = out;
     }
     tctx.putImageData(imgData, 0, 0);
     page.grayDataURL = tmp.toDataURL("image/jpeg", 0.92);
