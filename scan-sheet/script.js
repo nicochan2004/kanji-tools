@@ -59,13 +59,78 @@
     pages = pages.filter((p) => p.id !== id);
   }
 
+  const DEFAULT_CROP_FRAC = { left: 0.04, top: 0.04, right: 0.96, bottom: 0.96 };
+  const AUTO_CROP_SAMPLE_DIM = 120;
+  const AUTO_CROP_LINE_FRAC = 0.5; // この割合以上が「明るい」行/列を紙の範囲とみなす
+  const AUTO_CROP_MARGIN = 0.012;
+  const AUTO_CROP_MIN_SIZE_FRAC = 0.3; // 検出範囲が小さすぎる場合は自動判定を諦める
+
+  // 紙(明るい)と背景の机など(暗い)のコントラストを利用して、紙のおおよその
+  // 範囲を自動検出する。背景との明暗差が乏しい場合や検出範囲が極端な場合は
+  // null を返し、呼び出し側で従来の固定マージンにフォールバックする。
+  function detectPaperCropFrac(img) {
+    const sw = AUTO_CROP_SAMPLE_DIM;
+    const sh = Math.max(1, Math.round((sw * img.naturalHeight) / img.naturalWidth));
+    const c = document.createElement("canvas");
+    c.width = sw;
+    c.height = sh;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, sw, sh);
+    const data = ctx.getImageData(0, 0, sw, sh).data;
+
+    const luma = new Float32Array(sw * sh);
+    let minV = 255, maxV = 0;
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      const v = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      luma[p] = v;
+      if (v < minV) minV = v;
+      if (v > maxV) maxV = v;
+    }
+    if (maxV - minV < 30) return null;
+    const threshold = (minV + maxV) / 2;
+
+    const rowBright = new Float32Array(sh);
+    const colBright = new Float32Array(sw);
+    for (let y = 0; y < sh; y++) {
+      let count = 0;
+      for (let x = 0; x < sw; x++) {
+        if (luma[y * sw + x] > threshold) count++;
+      }
+      rowBright[y] = count / sw;
+    }
+    for (let x = 0; x < sw; x++) {
+      let count = 0;
+      for (let y = 0; y < sh; y++) {
+        if (luma[y * sw + x] > threshold) count++;
+      }
+      colBright[x] = count / sh;
+    }
+
+    let top = 0, bottom = sh - 1, left = 0, right = sw - 1;
+    while (top < bottom && rowBright[top] < AUTO_CROP_LINE_FRAC) top++;
+    while (bottom > top && rowBright[bottom] < AUTO_CROP_LINE_FRAC) bottom--;
+    while (left < right && colBright[left] < AUTO_CROP_LINE_FRAC) left++;
+    while (right > left && colBright[right] < AUTO_CROP_LINE_FRAC) right--;
+
+    if (bottom - top < sh * AUTO_CROP_MIN_SIZE_FRAC || right - left < sw * AUTO_CROP_MIN_SIZE_FRAC) {
+      return null;
+    }
+
+    return {
+      left: clamp(left / sw + AUTO_CROP_MARGIN, 0, 0.4),
+      top: clamp(top / sh + AUTO_CROP_MARGIN, 0, 0.4),
+      right: clamp((right + 1) / sw - AUTO_CROP_MARGIN, 0.6, 1),
+      bottom: clamp((bottom + 1) / sh - AUTO_CROP_MARGIN, 0.6, 1),
+    };
+  }
+
   function createPage(img) {
     return {
       id: nextId++,
       sourceImage: img,
       baseRotation: 0,
       fineRotation: 0,
-      cropFrac: { left: 0.04, top: 0.04, right: 0.96, bottom: 0.96 },
+      cropFrac: detectPaperCropFrac(img) || { ...DEFAULT_CROP_FRAC },
       cropped: false,
       colorCanvas: null,
       colorDataURL: null,
@@ -255,7 +320,7 @@
   }
 
   function resetCropFrac() {
-    workCrop = { left: 0.04, top: 0.04, right: 0.96, bottom: 0.96 };
+    workCrop = { ...DEFAULT_CROP_FRAC };
     renderCropBox();
   }
 
@@ -406,12 +471,12 @@
   const BG_GRID_COLS = 12;
   const BG_PERCENTILE = 0.2; // 明るい方から数えてこの割合に入る輝度を背景とみなす
   const NEAR_BACKGROUND_RATIO = 0.9;
-  // 背景と判定されなかった画素のうち、これより暗いものは文字とみなし、
-  // 読みやすくするためコントラストを強めて(さらに暗くして)はっきりさせる。
-  // これより明るい(が背景ほど明るくはない)画素は、意図的なグレーハッチング
-  // などとみなしそのまま残す。
-  const TEXT_DARKEN_THRESHOLD = 140;
-  const TEXT_DARKEN_FACTOR = 0.6;
+  // 十分に暗い画素は文字・線とみなし、純粋な黒にする(撮影時の露出不足で
+  // 黒のはずがグレーに写ってしまうのを補正)。これより明るい(が背景ほど
+  // 明るくはない)画素は、意図的なグレーハッチングなど中間調とみなし、
+  // 明るさを変えずそのまま残す(以前はここも暗くしていたが、中間調の
+  // グレーが黒くなってしまう問題があったため廃止)。
+  const BLACK_CUTOFF = 90;
 
   function buildBackgroundLumaMap(c) {
     const w = c.width;
@@ -484,8 +549,8 @@
       let out;
       if (v >= bg * NEAR_BACKGROUND_RATIO) {
         out = 255;
-      } else if (v <= TEXT_DARKEN_THRESHOLD) {
-        out = v * TEXT_DARKEN_FACTOR;
+      } else if (v <= BLACK_CUTOFF) {
+        out = 0;
       } else {
         out = v;
       }
