@@ -445,7 +445,80 @@
     renderList();
   });
 
-  printBtn.addEventListener("click", () => window.print());
+  const A4_W_MM = 210;
+  const A4_H_MM = 297;
+  const PDF_MARGIN_MM = 8;
+  let printFrame = null;
+
+  function buildPrintPdfBlob() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    const maxW = A4_W_MM - PDF_MARGIN_MM * 2;
+    const maxH = A4_H_MM - PDF_MARGIN_MM * 2;
+
+    pages.forEach((page, idx) => {
+      if (idx > 0) doc.addPage();
+      const dataUrl = mode === "bw" ? getGrayDataURL(page) : page.colorDataURL;
+      const iw = page.colorCanvas.width;
+      const ih = page.colorCanvas.height;
+      const scale = Math.min(maxW / iw, maxH / ih);
+      const w = iw * scale;
+      const h = ih * scale;
+      const x = (A4_W_MM - w) / 2;
+      const y = (A4_H_MM - h) / 2;
+      doc.addImage(dataUrl, "JPEG", x, y, w, h);
+    });
+
+    return doc.output("blob");
+  }
+
+  // 真のPDFページとして書き出すことで、SafariのHTML印刷ページ分割の不具合
+  // (画像が物理的に1個の<img>のため、ページ境界で真っ二つに割れる)を回避する。
+  // 非表示iframeにPDFを読み込んでprint()を呼ぶことで、ダウンロード等の
+  // 痕跡を残さずシステムの印刷シートだけが表示される。
+  function printPdfBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    if (printFrame) printFrame.remove();
+    printFrame = document.createElement("iframe");
+    printFrame.style.position = "fixed";
+    printFrame.style.left = "-10000px";
+    printFrame.style.top = "0";
+    printFrame.style.width = "600px";
+    printFrame.style.height = "800px";
+    printFrame.style.border = "0";
+    printFrame.src = url;
+    document.body.appendChild(printFrame);
+    printFrame.onload = () => {
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
+        } catch (e) {
+          window.open(url, "_blank");
+        }
+      }, 150);
+    };
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      if (printFrame) {
+        printFrame.remove();
+        printFrame = null;
+      }
+    }, 60000);
+  }
+
+  printBtn.addEventListener("click", () => {
+    printBtn.disabled = true;
+    printBtn.textContent = "🖨️ 準備中…";
+    setTimeout(() => {
+      try {
+        printPdfBlob(buildPrintPdfBlob());
+      } finally {
+        printBtn.disabled = false;
+        printBtn.textContent = "🖨️ 印刷する";
+      }
+    }, 30);
+  });
 
   restartBtn.addEventListener("click", () => {
     if (!confirm("最初からやり直しますか？追加したページはすべて削除されます。")) return;
