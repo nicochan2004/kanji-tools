@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>スキャン印刷シート</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ① ページ一覧・撮影 -->
+  <section id="screenList" class="screen">
+    <header class="app-header no-print">
+      <h1>📷 スキャン印刷シート</h1>
+      <p class="sub">問題集のページを1枚ずつ撮影すると、紙の部分だけを切り出してA4にまとめて印刷できます。</p>
+    </header>
+    <main class="list-main">
+      <div id="pageGrid" class="page-grid"></div>
+
+      <label class="file-drop" for="fileInput">
+        <span class="file-drop-icon">📷</span>
+        <span class="file-drop-text">ページを撮る・追加する</span>
+      </label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" multiple hidden>
+      <p class="hint">※ プリントの4辺がなるべく全部写るように、できるだけ正面から撮影してください。複数ページをまとめて選ぶこともできます。</p>
+
+      <div class="actions">
+        <button id="toPrintBtn" class="primary" type="button" disabled>🖨️ 印刷プレビューへ ▶</button>
+      </div>
+    </main>
+  </section>
+
+  <!-- ② かたむき補正・トリミング -->
+  <section id="screenCrop" class="screen" hidden>
+    <header class="quiz-header">
+      <button id="cropBackBtn" class="back-btn" type="button">← 一覧に戻る</button>
+      <h2 id="cropTitle">かたむき補正・切り出し</h2>
+    </header>
+    <main class="crop-main">
+      <div id="cropStage" class="crop-stage">
+        <canvas id="cropCanvas"></canvas>
+        <div class="crop-dim" id="cropDim"></div>
+        <div class="crop-box" id="cropBox">
+          <div class="crop-handle" data-handle="tl"></div>
+          <div class="crop-handle" data-handle="tr"></div>
+          <div class="crop-handle" data-handle="bl"></div>
+          <div class="crop-handle" data-handle="br"></div>
+        </div>
+      </div>
+
+      <div class="crop-controls">
+        <div class="field-row">
+          <button id="rotateLeftBtn" class="icon-btn" type="button" title="左に90度回転">↺ 90°</button>
+          <button id="rotateRightBtn" class="icon-btn" type="button" title="右に90度回転">↻ 90°</button>
+        </div>
+        <div class="field-row">
+          <label for="rotateSlider">かたむき補正</label>
+          <input id="rotateSlider" type="range" min="-15" max="15" step="0.5" value="0">
+          <span id="rotateValueLabel" class="value-label">0°</span>
+        </div>
+      </div>
+
+      <p class="hint">枠の四すみをドラッグして、プリント部分だけを囲んでください。</p>
+      <div class="actions">
+        <button id="cropNextBtn" class="primary" type="button">この範囲で確定 ▶</button>
+      </div>
+    </main>
+  </section>
+
+  <!-- ③ 印刷プレビュー -->
+  <section id="screenPrint" class="screen" hidden>
+    <header class="app-header no-print">
+      <button id="printBackBtn" class="back-btn" type="button">← 一覧に戻る</button>
+      <h2>印刷プレビュー</h2>
+      <div class="mode-switch">
+        <button id="modeBwBtn" class="mode-btn active" type="button">⬛ 白黒</button>
+        <button id="modeColorBtn" class="mode-btn" type="button">🌈 カラー</button>
+      </div>
+    </header>
+
+    <section class="preview-area" id="previewArea"></section>
+
+    <div class="actions no-print">
+      <button id="printBtn" class="primary" type="button">🖨️ 印刷する</button>
+      <button id="restartBtn" class="secondary" type="button">最初からやり直す</button>
+    </div>
+    <p class="hint no-print">※「印刷する」を押すとA4サイズで印刷されます。白黒のままだとインクの節約になります。</p>
+  </section>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
