@@ -10,6 +10,7 @@
   const inputGroupsEl = document.getElementById("inputGroups");
   const previewEl = document.getElementById("preview");
   const printBtn = document.getElementById("printBtn");
+  const pdfBtn = document.getElementById("pdfBtn");
   const clearBtn = document.getElementById("clearBtn");
   const kaiInputEl = document.getElementById("kaiInput");
 
@@ -317,6 +318,47 @@
     previewEl.querySelectorAll(".sheet-page").forEach(fitPageToOnePage);
   }
 
+  // スマホのSafari/Chromeはブラウザの印刷エンジン側の余白・スケール処理が機種ごとに
+  // ばらつき、CSSだけでは確実に1ページに収めきれない。そのため、画面に表示している
+  // シートをそのままラスタライズしてPDFへ直接書き出す(=ブラウザの印刷ページ処理を経由しない)
+  // ことで、印刷結果を確実に同じレイアウトにする。
+  const PDF_PAGE_W_MM = 210; // A4
+  const PDF_PAGE_H_MM = 297; // A4
+  const SHEET_W_MM = 205; // .sheet-pageのwidth(20.5cm)と一致させる
+  const SHEET_H_MM = 275; // .sheet-pageのheight(27.5cm)と一致させる
+
+  async function savePdf() {
+    const pages = previewEl.querySelectorAll(".sheet-page");
+    if (pages.length === 0) {
+      alert("漢字や単語を入力してください。");
+      return;
+    }
+    const originalLabel = pdfBtn.textContent;
+    pdfBtn.disabled = true;
+    pdfBtn.textContent = "PDF生成中...";
+    try {
+      fitAllPages();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const offsetX = (PDF_PAGE_W_MM - SHEET_W_MM) / 2;
+      const offsetY = (PDF_PAGE_H_MM - SHEET_H_MM) / 2;
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: "#ffffff" });
+        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, "JPEG", offsetX, offsetY, SHEET_W_MM, SHEET_H_MM);
+      }
+      const kai = kaiInputEl.value.trim();
+      pdf.save(`漢字練習シート${kai ? "_第" + kai + "回" : ""}.pdf`);
+    } catch (e) {
+      alert("PDFの生成に失敗しました。お手数ですが「印刷する」をお試しください。");
+    } finally {
+      pdfBtn.disabled = false;
+      pdfBtn.textContent = originalLabel;
+    }
+  }
+
   function render() {
     const words = getWords();
     let lastFilled = -1;
@@ -354,6 +396,7 @@
     fitAllPages();
     window.print();
   });
+  pdfBtn.addEventListener("click", savePdf);
   clearBtn.addEventListener("click", () => {
     inputGroupsEl.querySelectorAll("input").forEach((inp) => { inp.value = ""; });
     render();
