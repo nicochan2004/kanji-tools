@@ -230,8 +230,12 @@ body {
 }
 
 .sheet-page {
-  width: 21cm;
-  height: 29.7cm;
+  /* A4のフル寸法(21cm×29.7cm)ぴったりにすると、Safariが@page margin:0を
+     完全に尊重せず印刷可能領域の端に余白を確保してしまい、内容の量に関係なく
+     2ページ目(ほぼ白紙)が生成される(renshu-sheetで実機検証済み。28cm以下で解消)。
+     これを避けるため十分小さいサイズにする。 */
+  width: 20.5cm;
+  height: 27.5cm;
   background: #fff;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
   flex-shrink: 0;
