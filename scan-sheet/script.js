@@ -448,7 +448,6 @@
   const A4_W_MM = 210;
   const A4_H_MM = 297;
   const PDF_MARGIN_MM = 3;
-  let printFrame = null;
 
   function buildPrintPdfBlob() {
     const { jsPDF } = window.jspdf;
@@ -474,37 +473,14 @@
 
   // 真のPDFページとして書き出すことで、SafariのHTML印刷ページ分割の不具合
   // (画像が物理的に1個の<img>のため、ページ境界で真っ二つに割れる)を回避する。
-  // 非表示iframeにPDFを読み込んでprint()を呼ぶことで、ダウンロード等の
-  // 痕跡を残さずシステムの印刷シートだけが表示される。
-  function printPdfBlob(blob) {
+  // 非表示iframeに読み込んで自動でprint()を呼ぶ方式は、iOS実機では
+  // PDFの読み込みタイミング次第で1ページ目しか認識されないことがあり
+  // 信頼できなかったため、Safari標準のPDFビューアで開いて、ユーザーに
+  // 共有メニューから印刷してもらう確実な方式にする。
+  function openPdfBlob(blob) {
     const url = URL.createObjectURL(blob);
-    if (printFrame) printFrame.remove();
-    printFrame = document.createElement("iframe");
-    printFrame.style.position = "fixed";
-    printFrame.style.left = "-10000px";
-    printFrame.style.top = "0";
-    printFrame.style.width = "600px";
-    printFrame.style.height = "800px";
-    printFrame.style.border = "0";
-    printFrame.src = url;
-    document.body.appendChild(printFrame);
-    printFrame.onload = () => {
-      setTimeout(() => {
-        try {
-          printFrame.contentWindow.focus();
-          printFrame.contentWindow.print();
-        } catch (e) {
-          window.open(url, "_blank");
-        }
-      }, 150);
-    };
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-      if (printFrame) {
-        printFrame.remove();
-        printFrame = null;
-      }
-    }, 60000);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
   }
 
   printBtn.addEventListener("click", () => {
@@ -512,7 +488,7 @@
     printBtn.textContent = "🖨️ 準備中…";
     setTimeout(() => {
       try {
-        printPdfBlob(buildPrintPdfBlob());
+        openPdfBlob(buildPrintPdfBlob());
       } finally {
         printBtn.disabled = false;
         printBtn.textContent = "🖨️ 印刷する";
