@@ -5,7 +5,7 @@
   const SENTENCE_ROWS = 25;
 
   const KVG_BASE = "https://cdn.jsdelivr.net/gh/KanjiVG/kanjivg/kanji/";
-  const kvgCache = new Map(); // char -> {viewBox, paths:[d...], numbers:[{x,y,label}]} | null
+  const kvgCache = new Map(); // char -> Promise<{viewBox, paths:[d...], numbers:[{x,y,label}]} | null>
 
   const inputGroupsEl = document.getElementById("inputGroups");
   const previewEl = document.getElementById("preview");
@@ -103,33 +103,38 @@
     return slots;
   }
 
-  async function fetchKvg(ch) {
+  // 9マスを使い切るために単語を繰り返す仕様上、同じ文字を短時間に複数回フェッチすることが
+  // ある。fetchKvgが非同期処理の完了後にキャッシュへ書き込むと、同じ文字への2回目以降の
+  // 呼び出しがキャッシュ未設定のうちに重複fetchしてしまい、そのどちらかが原因不明に失敗する
+  // ことがあった。Promise自体を同期的にすぐキャッシュすることで重複fetchそのものを防ぐ。
+  function fetchKvg(ch) {
     if (kvgCache.has(ch)) return kvgCache.get(ch);
-    try {
-      const hex = charToHex(ch);
-      const res = await fetch(`${KVG_BASE}${hex}.svg`);
-      if (!res.ok) throw new Error("not-found");
-      const text = await res.text();
-      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
-      const source = doc.querySelector("svg");
-      const pathGroup = source.querySelector('g[id^="kvg:StrokePaths_"]');
-      const numberGroup = source.querySelector('g[id^="kvg:StrokeNumbers_"]');
-      if (!pathGroup) throw new Error("parse-error");
-      const viewBox = source.getAttribute("viewBox") || "0 0 109 109";
-      const paths = Array.from(pathGroup.querySelectorAll("path")).map((p) => p.getAttribute("d"));
-      const numbers = [];
-      if (numberGroup) {
-        numberGroup.querySelectorAll("text").forEach((t) => {
-          numbers.push({ transform: t.getAttribute("transform"), label: t.textContent });
-        });
+    const promise = (async () => {
+      try {
+        const hex = charToHex(ch);
+        const res = await fetch(`${KVG_BASE}${hex}.svg`);
+        if (!res.ok) throw new Error("not-found");
+        const text = await res.text();
+        const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+        const source = doc.querySelector("svg");
+        const pathGroup = source.querySelector('g[id^="kvg:StrokePaths_"]');
+        const numberGroup = source.querySelector('g[id^="kvg:StrokeNumbers_"]');
+        if (!pathGroup) throw new Error("parse-error");
+        const viewBox = source.getAttribute("viewBox") || "0 0 109 109";
+        const paths = Array.from(pathGroup.querySelectorAll("path")).map((p) => p.getAttribute("d"));
+        const numbers = [];
+        if (numberGroup) {
+          numberGroup.querySelectorAll("text").forEach((t) => {
+            numbers.push({ transform: t.getAttribute("transform"), label: t.textContent });
+          });
+        }
+        return { viewBox, paths, numbers };
+      } catch (e) {
+        return null; // 取得失敗時はプレーンな文字表示のまま
       }
-      const data = { viewBox, paths, numbers };
-      kvgCache.set(ch, data);
-      return data;
-    } catch (e) {
-      kvgCache.set(ch, null);
-      return null;
-    }
+    })();
+    kvgCache.set(ch, promise);
+    return promise;
   }
 
   function buildStrokeSvg(data, showNumbers) {
