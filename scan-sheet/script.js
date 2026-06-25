@@ -399,21 +399,67 @@
   // ---------- ③ 印刷プレビュー ----------
 
   // 撮影時の照明ムラ(紙の上端が暗い、中央だけ明るい等)があると、固定の
-  // しきい値では場所によって白くなったりならなかったりする。大きくぼかした
-  // 輝度マップを「その場所の背景の明るさ」とみなし、実際の輝度がそれに
-  // 近い(=ゆっくり変化する照明ムラの範囲内)画素だけを白にする。これにより
-  // 照明ムラは打ち消しつつ、文字やグレーハッチングなど局所的にはっきり
-  // 暗い画素はそのまま残す。
-  const NEAR_BACKGROUND_RATIO = 0.94;
-  const BG_MAP_SAMPLE_SIZE = 16;
+  // しきい値では場所によって白くなったりならなかったりする。マス目(セル)
+  // ごとに輝度の上位パーセンタイルを取って「そのあたりの紙の明るさ」を
+  // 推定する。平均ではなく上位パーセンタイルを使うのは、文字や線がそこに
+  // 多く含まれていても紙そのものの明るさに引っ張られにくくするため。
+  const BG_GRID_COLS = 12;
+  const BG_PERCENTILE = 0.2; // 明るい方から数えてこの割合に入る輝度を背景とみなす
+  const NEAR_BACKGROUND_RATIO = 0.9;
+  // 背景と判定されなかった画素のうち、これより暗いものは文字とみなし、
+  // 読みやすくするためコントラストを強めて(さらに暗くして)はっきりさせる。
+  // これより明るい(が背景ほど明るくはない)画素は、意図的なグレーハッチング
+  // などとみなしそのまま残す。
+  const TEXT_DARKEN_THRESHOLD = 140;
+  const TEXT_DARKEN_FACTOR = 0.6;
 
   function buildBackgroundLumaMap(c) {
     const w = c.width;
     const h = c.height;
+    const data = c.getContext("2d").getImageData(0, 0, w, h).data;
+
+    const cols = BG_GRID_COLS;
+    const rows = Math.max(1, Math.round((cols * h) / w));
+    const cellW = Math.ceil(w / cols);
+    const cellH = Math.ceil(h / rows);
+
     const small = document.createElement("canvas");
-    small.width = BG_MAP_SAMPLE_SIZE;
-    small.height = Math.max(1, Math.round((BG_MAP_SAMPLE_SIZE * h) / w));
-    small.getContext("2d").drawImage(c, 0, 0, small.width, small.height);
+    small.width = cols;
+    small.height = rows;
+    const sctx = small.getContext("2d");
+    const smallImg = sctx.createImageData(cols, rows);
+    const bucket = new Uint32Array(64);
+
+    for (let cy = 0; cy < rows; cy++) {
+      for (let cx = 0; cx < cols; cx++) {
+        bucket.fill(0);
+        const x0 = cx * cellW, x1 = Math.min(w, x0 + cellW);
+        const y0 = cy * cellH, y1 = Math.min(h, y0 + cellH);
+        let count = 0;
+        for (let y = y0; y < y1; y++) {
+          let p = (y * w + x0) * 4;
+          for (let x = x0; x < x1; x++, p += 4) {
+            const v = data[p] * 0.299 + data[p + 1] * 0.587 + data[p + 2] * 0.114;
+            bucket[Math.min(63, v >> 2)]++;
+            count++;
+          }
+        }
+        let cum = 0;
+        let est = 255;
+        for (let b = 63; b >= 0; b--) {
+          cum += bucket[b];
+          if (cum >= count * BG_PERCENTILE) {
+            est = b * 4 + 2;
+            break;
+          }
+        }
+        const idx = (cy * cols + cx) * 4;
+        smallImg.data[idx] = smallImg.data[idx + 1] = smallImg.data[idx + 2] = est;
+        smallImg.data[idx + 3] = 255;
+      }
+    }
+    sctx.putImageData(smallImg, 0, 0);
+
     const map = document.createElement("canvas");
     map.width = w;
     map.height = h;
@@ -434,8 +480,15 @@
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
       const v = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-      const bg = bgData[i] * 0.299 + bgData[i + 1] * 0.587 + bgData[i + 2] * 0.114;
-      const out = v >= bg * NEAR_BACKGROUND_RATIO ? 255 : v;
+      const bg = bgData[i];
+      let out;
+      if (v >= bg * NEAR_BACKGROUND_RATIO) {
+        out = 255;
+      } else if (v <= TEXT_DARKEN_THRESHOLD) {
+        out = v * TEXT_DARKEN_FACTOR;
+      } else {
+        out = v;
+      }
       d[i] = d[i + 1] = d[i + 2] = out;
     }
     tctx.putImageData(imgData, 0, 0);
