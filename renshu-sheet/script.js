@@ -9,7 +9,6 @@
 
   const inputGroupsEl = document.getElementById("inputGroups");
   const previewEl = document.getElementById("preview");
-  const printBtn = document.getElementById("printBtn");
   const pdfBtn = document.getElementById("pdfBtn");
   const clearBtn = document.getElementById("clearBtn");
   const kaiInputEl = document.getElementById("kaiInput");
@@ -345,6 +344,11 @@
     return pdf;
   }
 
+  // window.open()でPDFを新規タブに開いて印刷する方式も試したが、iOS Safariは
+  // 非同期処理(await)を挟んだ後のwindow.open()をユーザー操作起因と認識せず
+  // ポップアップとしてブロックしてしまい、ボタンが反応しないように見える問題があった。
+  // ダウンロード(pdf.save)はこの制限を受けないため、PDFを保存してそれを開いて
+  // 印刷してもらう方式に統一する。
   async function savePdf() {
     if (previewEl.querySelectorAll(".sheet-page").length === 0) {
       alert("漢字や単語を入力してください。");
@@ -352,50 +356,18 @@
     }
     const originalLabel = pdfBtn.textContent;
     pdfBtn.disabled = true;
-    pdfBtn.textContent = "PDF生成中...";
+    pdfBtn.textContent = "準備中...";
     try {
       const pdf = await buildPdfDoc();
       const kai = kaiInputEl.value.trim();
       pdf.save(`漢字練習シート${kai ? "_第" + kai + "回" : ""}.pdf`);
     } catch (e) {
-      alert("PDFの生成に失敗しました。お手数ですが「印刷する」をお試しください。");
-    } finally {
-      pdfBtn.disabled = false;
-      pdfBtn.textContent = originalLabel;
-    }
-  }
-
-  // PDFとして真のページを渡すことで、HTML+CSSの印刷ページ処理(機種ごとに余白や
-  // スケールの扱いが違い、ずれ・見切れの原因になっていた)を経由せず、ブラウザの
-  // PDF表示エンジンに任せるため結果が安定する。
-  // 非表示iframeに読み込んで自動でprint()を呼ぶ方式も試したが、iOS実機ではPDFの
-  // 読み込みタイミング次第で1ページ目しか認識されないことがあり信頼できなかった
-  // (姉妹アプリ「スキャン印刷シート」での実機検証より)。そのためSafari標準のPDF
-  // ビューアで新規タブに開き、共有メニューから印刷してもらう確実な方式にする。
-  function openPdfBlob(blob) {
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
-  }
-
-  async function printSheet() {
-    const originalLabel = printBtn.textContent;
-    printBtn.disabled = true;
-    printBtn.textContent = "準備中...";
-    try {
-      const pdf = await buildPdfDoc();
-      if (!pdf) {
-        alert("漢字や単語を入力してください。");
-        return;
-      }
-      openPdfBlob(pdf.output("blob"));
-    } catch (e) {
       // PDFライブラリが読み込めない場合(オフライン等)は従来の印刷方法にフォールバックする
       fitAllPages();
       window.print();
     } finally {
-      printBtn.disabled = false;
-      printBtn.textContent = originalLabel;
+      pdfBtn.disabled = false;
+      pdfBtn.textContent = originalLabel;
     }
   }
 
@@ -432,7 +404,6 @@
   buildInputUI();
   inputGroupsEl.addEventListener("input", scheduleRender);
   kaiInputEl.addEventListener("input", scheduleRender);
-  printBtn.addEventListener("click", printSheet);
   pdfBtn.addEventListener("click", savePdf);
   clearBtn.addEventListener("click", () => {
     inputGroupsEl.querySelectorAll("input").forEach((inp) => { inp.value = ""; });

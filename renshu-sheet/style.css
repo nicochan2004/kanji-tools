@@ -79,8 +79,7 @@ body {
   border: none;
 }
 .actions .primary { background: var(--accent); color: #fff; font-weight: bold; }
-.actions .pdf { background: var(--line); color: #fff; font-weight: bold; }
-.actions .pdf:disabled { opacity: 0.6; }
+.actions .primary:disabled { opacity: 0.6; }
 .actions .secondary { background: #e5e5e5; color: #444; }
 .hint { font-size: 12px; color: #888; margin-top: 8px; }
 
