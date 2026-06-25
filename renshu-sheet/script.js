@@ -365,40 +365,17 @@
     }
   }
 
-  // 非表示iframeにPDFを読み込んでprint()を呼ぶことで、ダウンロード等の痕跡を残さず
-  // システムの印刷シートだけを表示する。PDFとして真のページを渡すことで、HTML+CSSの
-  // 印刷ページ処理(機種ごとに余白やスケールの扱いが違い、ずれ・見切れの原因になっていた)
-  // を経由せず、ブラウザのPDF表示・印刷エンジンに任せるため結果が安定する。
-  let printFrame = null;
-  function printPdfBlob(blob) {
+  // PDFとして真のページを渡すことで、HTML+CSSの印刷ページ処理(機種ごとに余白や
+  // スケールの扱いが違い、ずれ・見切れの原因になっていた)を経由せず、ブラウザの
+  // PDF表示エンジンに任せるため結果が安定する。
+  // 非表示iframeに読み込んで自動でprint()を呼ぶ方式も試したが、iOS実機ではPDFの
+  // 読み込みタイミング次第で1ページ目しか認識されないことがあり信頼できなかった
+  // (姉妹アプリ「スキャン印刷シート」での実機検証より)。そのためSafari標準のPDF
+  // ビューアで新規タブに開き、共有メニューから印刷してもらう確実な方式にする。
+  function openPdfBlob(blob) {
     const url = URL.createObjectURL(blob);
-    if (printFrame) printFrame.remove();
-    printFrame = document.createElement("iframe");
-    printFrame.style.position = "fixed";
-    printFrame.style.left = "-10000px";
-    printFrame.style.top = "0";
-    printFrame.style.width = "600px";
-    printFrame.style.height = "800px";
-    printFrame.style.border = "0";
-    printFrame.src = url;
-    document.body.appendChild(printFrame);
-    printFrame.onload = () => {
-      setTimeout(() => {
-        try {
-          printFrame.contentWindow.focus();
-          printFrame.contentWindow.print();
-        } catch (e) {
-          window.open(url, "_blank");
-        }
-      }, 150);
-    };
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-      if (printFrame) {
-        printFrame.remove();
-        printFrame = null;
-      }
-    }, 60000);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
   }
 
   async function printSheet() {
@@ -411,7 +388,7 @@
         alert("漢字や単語を入力してください。");
         return;
       }
-      printPdfBlob(pdf.output("blob"));
+      openPdfBlob(pdf.output("blob"));
     } catch (e) {
       // PDFライブラリが読み込めない場合(オフライン等)は従来の印刷方法にフォールバックする
       fitAllPages();
