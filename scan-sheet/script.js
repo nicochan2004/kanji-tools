@@ -398,6 +398,11 @@
 
   // ---------- ③ 印刷プレビュー ----------
 
+  // 撮影時の照明や紙の色味の影響で、本来白い背景がわずかにグレーになり
+  // 印刷インクを消費してしまう。ほぼ白に近い画素だけを完全な白にすることで、
+  // 意図的なグレーハッチング(網掛け)など、これより濃い画素はそのまま残す。
+  const WHITE_CUTOFF = 235;
+
   function getGrayDataURL(page) {
     if (page.grayDataURL) return page.grayDataURL;
     const c = page.colorCanvas;
@@ -409,7 +414,8 @@
     const imgData = tctx.getImageData(0, 0, tmp.width, tmp.height);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
-      const v = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      let v = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      if (v >= WHITE_CUTOFF) v = 255;
       d[i] = d[i + 1] = d[i + 2] = v;
     }
     tctx.putImageData(imgData, 0, 0);
