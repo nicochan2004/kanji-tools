@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漢字書き取りドリル</title>
+<link rel="stylesheet" href="style.css">
+<style id="pageSizeRule"></style>
+</head>
+<body>
+  <div id="app">
+    <header class="app-header no-print">
+      <h1>漢字書き取りドリル</h1>
+      <p class="sub">3つのパターンから練習シートを作って印刷できます。</p>
+    </header>
+
+    <nav class="tabs no-print">
+      <button class="tab-btn active" data-pattern="1">① 漢字単体練習</button>
+      <button class="tab-btn" data-pattern="2">② なぞり(お手本)あり</button>
+      <button class="tab-btn" data-pattern="3">③ テスト形式</button>
+    </nav>
+
+    <section id="pattern1Area" class="input-area no-print">
+      <p class="sub">漢字(複数文字の熟語も可)と読みを入力すると、右上の列から順にマスを埋めていくシートを作れます。文字数が枠に満たない分は空欄になります。</p>
+      <div class="field-row">
+        <label for="p1Cols">横のマス数(列数)</label>
+        <input id="p1Cols" type="number" min="1" max="10" value="6">
+        <label for="p1Rows">縦のマス数(行数)</label>
+        <input id="p1Rows" type="number" min="1" max="20" value="11">
+      </div>
+      <div id="p1Units"></div>
+      <div class="actions">
+        <button id="p1AddBtn" class="secondary">枠を追加</button>
+      </div>
+    </section>
+
+    <section id="pattern2Area" class="input-area no-print" hidden>
+      <p class="sub">漢字(複数文字の熟語も可)と読みを入力すると、右上の列から順にマスを埋めていくシートを作れます。文字数が枠に満たない分は空欄になります。</p>
+      <div class="field-row">
+        <label for="p2Cols">横のマス数(列数)</label>
+        <input id="p2Cols" type="number" min="1" max="10" value="6">
+        <label for="p2Rows">縦のマス数(行数)</label>
+        <input id="p2Rows" type="number" min="1" max="20" value="11">
+      </div>
+      <div id="p2Units"></div>
+      <div class="actions">
+        <button id="p2AddBtn" class="secondary">枠を追加</button>
+      </div>
+    </section>
+
+    <section id="pattern3Area" class="input-area no-print" hidden>
+      <p class="sub">文章を入力し、漢字にしたい部分をクリックして選択すると、穴埋めテストを作れます(A4横向き)。</p>
+      <div class="field-row">
+        <label for="p3Sentences">文章(1行に1文)</label>
+      </div>
+      <textarea id="p3Sentences" rows="4" placeholder="はをかむ&#10;クルマにのる"></textarea>
+      <div id="p3SelectPreview" class="select-preview"></div>
+      <div class="actions">
+        <button id="p3ResetPendingBtn" class="secondary">選択をやり直す</button>
+      </div>
+      <div id="p3SelectionList" class="selection-list"></div>
+    </section>
+
+    <section class="actions common-actions no-print">
+      <button id="pdfBtn" class="primary">印刷</button>
+      <button id="clearBtn" class="secondary">すべて消去</button>
+    </section>
+    <p class="hint no-print">※「印刷」を押すとPDFファイルが保存されます。保存したPDFを開いて印刷してください。</p>
+
+    <section id="preview" class="preview-area"></section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
+  <script src="common.js"></script>
+  <script src="pattern1.js"></script>
+  <script src="pattern2.js"></script>
+  <script src="pattern3.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

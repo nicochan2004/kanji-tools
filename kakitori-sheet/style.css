@@ -1,0 +1,281 @@
+:root {
+  --masu: 2.2cm;
+  --masu-p3: 1.5cm;
+  --page-margin: 0.3cm;
+  --header-h: 0.8cm;
+  --accent: #F4A300;
+  --line: #5B9BD5;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+  background: #f2f2f2;
+  color: #222;
+}
+
+#app { max-width: 100%; }
+
+.app-header { padding: 16px 16px 8px; background: #fff; }
+.app-header h1 { margin: 0 0 4px; font-size: 20px; }
+.app-header .sub { margin: 0; font-size: 13px; color: #666; }
+
+/* タブ */
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  flex-wrap: wrap;
+}
+.tab-btn {
+  padding: 10px 14px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 8px 8px 0 0;
+  background: #f0f0f0;
+  color: #555;
+  cursor: pointer;
+}
+.tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: bold; }
+
+.input-area { padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; }
+.input-area .sub { margin: 0 0 10px; font-size: 13px; color: #666; }
+
+.field-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.field-row label { font-size: 13px; color: #555; }
+.field-row input[type="number"], .field-row input[type="text"] {
+  width: 70px; height: 32px; text-align: center; font-size: 14px;
+  border: 1px solid #bbb; border-radius: 6px;
+}
+
+textarea#p3Sentences {
+  width: 100%; min-height: 4.5em; font-size: 15px; padding: 8px;
+  border: 1px solid #bbb; border-radius: 6px; font-family: inherit;
+  resize: vertical;
+}
+
+/* パターン①②の入力枠(1漢字/1熟語ぶん) */
+.unit-input-row {
+  display: flex; align-items: center; gap: 6px; margin: 4px 0;
+}
+.unit-input-row .slot-label { width: 22px; font-size: 11px; color: #999; text-align: right; }
+.unit-input-row input {
+  height: 38px; text-align: center; font-size: 16px;
+  border: 1px solid #bbb; border-radius: 6px;
+  font-family: "Hiragino Mincho ProN", "YuMincho", "MS Mincho", serif;
+}
+.unit-input-row input.kanji-input { width: 56px; }
+.unit-input-row input.okurigana-input { width: 64px; }
+.unit-input-row input.yomi-input { width: 84px; }
+.unit-input-row input.word-input { width: 100px; }
+
+/* パターン①: 単語テキスト+文字ごとの動的読み入力 */
+.word-input-row { align-items: flex-start; }
+.word-input-row input.word-text-input { width: 120px; }
+.yomi-inputs-container { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.yomi-char-input { width: 44px; height: 32px; font-size: 13px; text-align: center; border: 1px solid #bbb; border-radius: 6px; }
+.yomi-char-fixed {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 32px; font-size: 13px; color: #888; background: #f2f2f2; border-radius: 6px;
+}
+
+.actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.actions button {
+  padding: 10px 16px; font-size: 14px; border-radius: 8px; border: none;
+}
+.actions .primary { background: var(--accent); color: #fff; font-weight: bold; }
+.actions .primary:disabled { opacity: 0.6; }
+.actions .secondary { background: #e5e5e5; color: #444; }
+.common-actions { padding: 12px 16px; background: #fff; }
+.hint { font-size: 12px; color: #888; padding: 0 16px 8px; }
+
+/* パターン③: 文字クリック選択プレビュー */
+.select-preview {
+  border: 1px solid #ccc; border-radius: 8px; padding: 10px;
+  background: #fafafa; line-height: 2.4; min-height: 2em;
+}
+.select-line { margin-bottom: 6px; }
+.char {
+  display: inline-block; min-width: 1.5em; text-align: center;
+  padding: 3px 1px; cursor: pointer; border-radius: 4px; font-size: 17px;
+}
+.char:hover { background: #e8e8e8; }
+.char-selected { background: #ffe3a0; }
+.char-pending { background: #a8d0ff; }
+.char-reject { background: #ff9d9d !important; }
+
+.selection-list { margin-top: 10px; }
+.selection-item {
+  display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 14px;
+}
+.selection-item .sel-num { font-weight: bold; }
+.selection-item .sel-text { color: #555; }
+
+/* 印刷シート */
+.preview-area {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  padding: 16px 0 40px; overflow-x: auto;
+}
+
+.sheet-page {
+  padding: var(--page-margin);
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+  flex-shrink: 0;
+  position: relative;
+}
+/* A4フル寸法ぴったりにするとSafariが@page margin:0を完全に尊重せず
+   印刷可能領域の端に余白を確保してしまい、2ページ目(ほぼ白紙)が生成されることがあるため
+   十分小さいサイズにする(renshu-sheetでの実機検証を踏襲)。 */
+.sheet-page.orientation-portrait { width: 20.5cm; height: 27.5cm; }
+.sheet-page.orientation-landscape { width: 28.5cm; height: 19.5cm; }
+
+.page-header {
+  direction: ltr;
+  height: var(--header-h);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--accent); color: #fff; padding: 0 0.2cm;
+  font-size: 10pt; font-weight: bold; box-sizing: border-box;
+}
+.page-header .meta { font-size: 8pt; font-weight: normal; }
+
+.page-body { margin-top: 0.15cm; }
+.page-body.dir-rtl { direction: rtl; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35cm; }
+.page-body.dir-ltr { direction: ltr; }
+
+.masu-dashed {
+  position: relative;
+  width: var(--masu);
+  height: var(--masu);
+  border: 1px solid #000;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -1px;
+}
+.practice-col .masu-dashed:first-child { margin-top: 0; }
+.masu-dashed::before, .masu-dashed::after { content: ""; position: absolute; z-index: 1; }
+.masu-dashed::before { left: 50%; top: 0; bottom: 0; border-left: 1px dashed var(--line); opacity: 0.7; }
+.masu-dashed::after { top: 50%; left: 0; right: 0; border-top: 1px dashed var(--line); opacity: 0.7; }
+
+.masu-char {
+  position: relative; z-index: 2;
+  font-family: "Hiragino Mincho ProN", "YuMincho", "MS Mincho", serif;
+  font-weight: 300; font-size: 1.75cm; color: #A6A6A6; line-height: 1;
+}
+.masu-char-small { font-size: 1cm; }
+.masu-stroke { position: relative; z-index: 2; width: 88%; height: 88%; }
+.masu-stroke-small { width: 60%; height: 60%; }
+.masu-stroke svg { width: 100%; height: 100%; display: block; }
+
+/* パターン①②共通: 固定サイズのグリッド(横cols×縦rows)を先に作り、入力文字列を
+   右上の列から上→下、列は右→左の順(縦書きの読み順)に敷き詰める。
+   各列の右にその列専用の読みがな列を添える。単語の最後の文字のマスだけ
+   border-bottomを太くして、次の単語との境目を示す。
+   パターン①は .p1-*、パターン②は .p2-* を使う(同じ構造だが、将来どちらかだけ
+   見た目を変える可能性があるため、あえてクラス名を分けて複製している)。 */
+.p1-page-body, .p2-page-body {
+  direction: ltr;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+}
+.p1-col-group, .p2-col-group {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+.p1-col-group + .p1-col-group, .p2-col-group + .p2-col-group { margin-right: -1px; }
+.p1-col-practice, .p2-col-practice { display: flex; flex-direction: column; }
+.p1-col-yomi, .p2-col-yomi { display: flex; flex-direction: column; }
+.p1-col-practice .masu-dashed, .p2-col-practice .masu-dashed { margin-top: -1px; }
+.p1-col-practice .masu-dashed:first-child, .p2-col-practice .masu-dashed:first-child { margin-top: 0; }
+.p1-yomi-cell, .p2-yomi-cell {
+  width: 0.9cm;
+  height: var(--masu);
+  box-sizing: border-box;
+  border: 1px solid #000;
+  margin-top: -1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11pt;
+  color: #333;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
+.p1-col-yomi .p1-yomi-cell:first-child, .p2-col-yomi .p2-yomi-cell:first-child { margin-top: 0; }
+.p1-cell-strong, .p2-cell-strong { position: relative; z-index: 5; border-bottom: 3px solid #333 !important; }
+
+/* パターン③: 縦書きテスト。1つの文=1つの縦書きの列とし、列を右から左に並べる。
+   出題範囲(升目)はその部分だけ升目にし、右にその読み(ふりがな)と丸数字を添える。
+   それ以外の文字はそのまま縦書きの文章として続ける。 */
+.p3-page-body {
+  direction: ltr;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  height: 100%;
+  width: fit-content;
+  margin-left: auto;
+}
+.p3-sentence-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0.2cm;
+}
+.p3-sentence-num {
+  font-size: 12pt;
+  font-weight: bold;
+  color: #2E5395;
+  margin-bottom: 0.15cm;
+}
+.p3-char {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-size: 15pt;
+  padding: 0.05cm 0;
+  line-height: 1;
+}
+.p3-answer-unit { display: flex; flex-direction: row; align-items: stretch; margin: 0.1cm 0; }
+.p3-answer-masus { display: flex; flex-direction: column; }
+.p3-answer-masu { width: var(--masu-p3); height: var(--masu-p3); margin-top: -1px; }
+.p3-answer-masus .p3-answer-masu:first-child { margin-top: 0; }
+/* 自主練習用: この列で使った出題ブロックをまるごと複製し、列の下の余白にもう一度並べる */
+.p3-practice-wrap {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.3cm;
+  padding-top: 0.2cm;
+  border-top: 2px dashed #5B9BD5;
+}
+.p3-answer-side {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  width: 0.8cm;
+}
+.p3-answer-num { font-size: 10pt; font-weight: bold; color: #2E5395; text-align: center; line-height: 1.2; }
+.p3-answer-yomi {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-size: 9.5pt;
+  color: #333;
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.no-print { }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .preview-area { padding: 0; gap: 0; overflow: visible; }
+  .sheet-page { box-shadow: none; margin: 0; }
+  .sheet-page + .sheet-page { page-break-before: always; break-before: page; }
+}
