@@ -77,10 +77,10 @@ textarea#p3Sentences {
 .word-input-row { align-items: flex-start; }
 .word-input-row input.word-text-input { width: 120px; }
 .yomi-inputs-container { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
-.yomi-char-input { width: 44px; height: 32px; font-size: 13px; text-align: center; border: 1px solid #bbb; border-radius: 6px; }
+.yomi-char-input { width: 64px; height: 32px; font-size: 13px; text-align: center; border: 1px solid #bbb; border-radius: 6px; }
 .yomi-char-fixed {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 32px; font-size: 13px; color: #888; background: #f2f2f2; border-radius: 6px;
+  width: 64px; height: 32px; font-size: 13px; color: #888; background: #f2f2f2; border-radius: 6px;
 }
 
 .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
