@@ -99,32 +99,42 @@
     });
   }
 
-  // 漢字→読み(カタカナ)の自動推定。kuromoji.js(形態素解析)をCDNから遅延ロードする。
-  // 辞書ダウンロードに時間がかかるため、初回呼び出し時にPromiseをキャッシュして使い回す。
+  // 漢字→読み(カタカナ)の自動推定。kuromoji.js(形態素解析)の辞書構築・実行は重い同期処理で、
+  // メインスレッドで行うとページが固まって見えるため、専用のWeb Workerに完全に切り出す。
   // あくまで手入力の手間を減らすための下書き用途で、精度の保証はしない(呼び出し側で修正可能にする)。
-  let tokenizerPromise = null;
-  function loadTokenizer() {
-    if (tokenizerPromise) return tokenizerPromise;
-    tokenizerPromise = new Promise((resolve) => {
-      if (typeof kuromoji === "undefined") { resolve(null); return; }
-      kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, tokenizer) => {
-        if (err) { console.error("kuromoji load failed", err); resolve(null); return; }
-        resolve(tokenizer);
-      });
-    });
-    return tokenizerPromise;
+  let worker = null;
+  let nextRequestId = 1;
+  const pendingRequests = new Map();
+
+  function getWorker() {
+    if (worker) return worker;
+    worker = new Worker("kuromoji-worker.js");
+    worker.onmessage = (e) => {
+      const { id, reading } = e.data;
+      const resolve = pendingRequests.get(id);
+      if (resolve) {
+        resolve(reading);
+        pendingRequests.delete(id);
+      }
+    };
+    worker.onerror = () => {
+      pendingRequests.forEach((resolve) => resolve(""));
+      pendingRequests.clear();
+    };
+    return worker;
   }
 
-  async function guessReading(text) {
-    const tokenizer = await loadTokenizer();
-    if (!tokenizer) return "";
-    try {
-      const tokens = tokenizer.tokenize(text);
-      if (tokens.length === 0) return "";
-      return tokens[0].reading || "";
-    } catch (e) {
-      return "";
-    }
+  function guessReading(text) {
+    return new Promise((resolve) => {
+      try {
+        const w = getWorker();
+        const id = nextRequestId++;
+        pendingRequests.set(id, resolve);
+        w.postMessage({ id, text });
+      } catch (e) {
+        resolve("");
+      }
+    });
   }
 
   function circledNumber(n) {
@@ -262,10 +272,8 @@
     initTabs,
   };
 
-  // 辞書構築(数MBのダウンロード+パース)はメインスレッドを長時間占有しうるため、
-  // 実際にユーザーが最初の1文字を打った瞬間に走らせるとその場でフリーズして見える。
-  // ページの他の初期化を邪魔しない暇な時間に先読みしておき、実際の入力時には
-  // 構築済みになっている可能性を高める。
+  // Workerを早めに起動しておき、実際にユーザーが入力を始める頃には
+  // 辞書構築(Worker内、メインスレッドとは無関係)が終わっている可能性を高める。
   const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 300));
-  idle(() => { loadTokenizer(); });
+  idle(() => { getWorker(); });
 })();
