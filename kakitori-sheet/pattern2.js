@@ -79,12 +79,20 @@
       const yomiContainer = document.createElement("div");
       yomiContainer.className = "yomi-inputs-container";
 
-      wordInput.addEventListener("input", () => {
+      // 日本語入力の変換中(未確定)にもinputイベントは発火するため、その都度
+      // kuromojiの読み推定とDOM再構築を走らせると変換操作中にフリーズして見える。
+      // 変換確定後(compositionend)にだけ実行する。
+      const handleWordInput = () => {
         const text = wordInput.value.trim();
         rebuildYomiInputs(yomiContainer, text);
         autofillReadings(yomiContainer, text);
         scheduleRender();
+      };
+      wordInput.addEventListener("input", (e) => {
+        if (e.isComposing) return;
+        handleWordInput();
       });
+      wordInput.addEventListener("compositionend", handleWordInput);
 
       row.appendChild(label);
       row.appendChild(wordInput);
