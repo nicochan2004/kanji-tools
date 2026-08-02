@@ -110,21 +110,24 @@
     if (worker) return worker;
     worker = new Worker("kuromoji-worker.js");
     worker.onmessage = (e) => {
-      const { id, reading } = e.data;
+      const { id, tokens } = e.data;
       const resolve = pendingRequests.get(id);
       if (resolve) {
-        resolve(reading);
+        resolve(tokens || []);
         pendingRequests.delete(id);
       }
     };
     worker.onerror = () => {
-      pendingRequests.forEach((resolve) => resolve(""));
+      pendingRequests.forEach((resolve) => resolve([]));
       pendingRequests.clear();
     };
     return worker;
   }
 
-  function guessReading(text) {
+  // textをまとめて形態素解析し、[{surface, reading}, ...] を返す。
+  // 1文字ずつ個別に引くと単語としての文脈を失う(「興味」の「味」だけを見ると
+  // 「あじ」になる等)ため、呼び出し側は意味のあるまとまり単位でこれを呼ぶこと。
+  function guessReadingTokens(text) {
     return new Promise((resolve) => {
       try {
         const w = getWorker();
@@ -132,9 +135,58 @@
         pendingRequests.set(id, resolve);
         w.postMessage({ id, text });
       } catch (e) {
-        resolve("");
+        resolve([]);
       }
     });
+  }
+
+  // 文字配列(1単語ぶん)を受け取り、各文字位置に対応する読みの配列を返す。
+  // ひらがな(送り仮名)はそのまま、それ以外は「連続する非ひらがなのまとまり」ごとに
+  // まとめてtokenizeし、形態素の文字数と読みの文字数が一致すれば1文字ずつ、
+  // 一致しなければその形態素の先頭文字に読み全体をまとめる(パターン②の
+  // フォールバックと同じ考え方)。
+  async function guessReadingsForChars(chars) {
+    const readings = new Array(chars.length).fill("");
+    let i = 0;
+    while (i < chars.length) {
+      if (isHiragana(chars[i])) {
+        readings[i] = chars[i];
+        i += 1;
+        continue;
+      }
+      let j = i;
+      while (j < chars.length && !isHiragana(chars[j])) j += 1;
+      const runText = chars.slice(i, j).join("");
+      const tokens = await guessReadingTokens(runText);
+      let offset = i;
+      tokens.forEach((t) => {
+        const segChars = Array.from(t.surface || "");
+        const segReadingChars = Array.from(t.reading || "");
+        if (segChars.length > 0 && segChars.length === segReadingChars.length) {
+          segChars.forEach((ch, k) => { readings[offset + k] = segReadingChars[k]; });
+        } else if (segChars.length > 0) {
+          readings[offset] = t.reading || "";
+        }
+        offset += segChars.length;
+      });
+      i = j;
+    }
+    return readings;
+  }
+
+  // 読み入力欄は「興味→キョウミ」のような複数文字の読みが1つの欄に入ることがあるため、
+  // 内容に応じて幅を伸ばす。文字数の概算ではなく、実際のフォントでの描画幅を
+  // canvasで計測して決める(全角カタカナの文字幅は概算だと誤差が出て見切れやすいため)。
+  // 最小幅は既存のデザインに合わせて64pxのまま。
+  let measureCanvas = null;
+  function autoSizeYomiInput(inp) {
+    const text = inp.value || inp.placeholder || "";
+    if (!measureCanvas) measureCanvas = document.createElement("canvas");
+    const ctx = measureCanvas.getContext("2d");
+    const cs = getComputedStyle(inp);
+    ctx.font = `${cs.fontSize} ${cs.fontFamily}`;
+    const textWidth = ctx.measureText(text).width;
+    inp.style.width = Math.max(64, Math.ceil(textWidth) + 28) + "px";
   }
 
   function circledNumber(n) {
@@ -262,7 +314,9 @@
     fetchKvg,
     buildStrokeSvg,
     renderModelChar,
-    guessReading,
+    guessReadingTokens,
+    guessReadingsForChars,
+    autoSizeYomiInput,
     circledNumber,
     fitPageToOnePage,
     fitAllPages,

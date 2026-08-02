@@ -41,17 +41,19 @@ function loadTokenizer() {
 // Worker起動と同時に先読みしておく(メインスレッドには影響しない)。
 loadTokenizer();
 
+// 単語まるごとの表層形と読みを形態素単位で返す。1文字ずつ個別に読みを引くと、
+// 「興味」の「味」だけを見て「あじ」と誤読するようなことが起きるため、
+// 呼び出し側で「まとまり」ごとまとめてtokenizeし、形態素の単位で読みを対応づける。
 self.onmessage = async (e) => {
   const { id, text } = e.data;
   const tokenizer = await loadTokenizer();
-  let reading = "";
+  let tokens = [];
   if (tokenizer) {
     try {
-      const tokens = tokenizer.tokenize(text);
-      if (tokens.length > 0) reading = tokens[0].reading || "";
+      tokens = tokenizer.tokenize(text).map((t) => ({ surface: t.surface_form, reading: t.reading || "" }));
     } catch (err) {
-      reading = "";
+      tokens = [];
     }
   }
-  self.postMessage({ id, reading });
+  self.postMessage({ id, tokens });
 };

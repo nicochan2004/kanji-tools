@@ -65,19 +65,26 @@
     }
   }
 
-  // 漢字の文字位置だけ、まだ読みが空なら自動推定して補う(kuromoji.js)。手動修正済みの値は上書きしない。
+  // 漢字部分だけ、まだ読みが空なら自動推定して補う(kuromoji.js)。1文字ずつではなく
+  // 連続する漢字のまとまりごとにまとめて解析することで、「興味」の「味」だけを見て
+  // 「あじ」と誤読するようなことを避ける(KD.guessReadingsForChars参照)。
+  // 手動修正済みの値は上書きしない。
   async function autofillSelectionReadings(sel) {
     const chars = selectedChars(sel);
-    for (let i = 0; i < chars.length; i++) {
-      if (KD.isHiragana(chars[i])) continue;
-      if (sel.readings[i]) continue;
-      const reading = await KD.guessReading(chars[i]);
-      if (!state.selections.includes(sel) || sel.readings[i]) continue;
-      if (reading) {
-        sel.readings[i] = reading;
-        renderSelectionList();
-        renderPrintPreview();
+    const readings = await KD.guessReadingsForChars(chars);
+    if (!state.selections.includes(sel)) return;
+    let changed = false;
+    chars.forEach((ch, i) => {
+      if (KD.isHiragana(ch)) return;
+      if (sel.readings[i]) return;
+      if (readings[i]) {
+        sel.readings[i] = readings[i];
+        changed = true;
       }
+    });
+    if (changed) {
+      renderSelectionList();
+      renderPrintPreview();
     }
   }
 
@@ -180,13 +187,15 @@
         } else {
           const inp = document.createElement("input");
           inp.className = "yomi-char-input";
-          inp.maxLength = 3;
+          inp.maxLength = 12;
           inp.placeholder = "読み";
           inp.value = sel.readings[i] || "";
           inp.addEventListener("input", () => {
             sel.readings[i] = inp.value;
+            KD.autoSizeYomiInput(inp);
             renderPrintPreview();
           });
+          KD.autoSizeYomiInput(inp);
           yomiContainer.appendChild(inp);
         }
       });

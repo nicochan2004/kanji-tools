@@ -19,6 +19,8 @@
   // 単語テキストの文字構成に合わせて、読み入力欄を作り直す。
   // ひらがなの文字はそのまま固定表示(送り仮名は読みも同じひらがな)、それ以外は編集可能な入力欄にする。
   // 既存の入力値は同じ文字位置であれば保持する。
+  // 「興味→キョウミ」のように1つの熟語の読みが複数文字ぶん1つの欄にまとまることがあるため、
+  // maxLengthは長めに確保し、入力欄の幅も内容に応じて広げる。
   function rebuildYomiInputs(container, text) {
     const prevValues = {};
     container.querySelectorAll("input[data-char-index]").forEach((el) => {
@@ -35,30 +37,34 @@
       } else {
         const inp = document.createElement("input");
         inp.className = "yomi-char-input";
-        inp.maxLength = 3;
+        inp.maxLength = 12;
         inp.placeholder = "読み";
         inp.dataset.charIndex = String(i);
         if (prevValues[i] !== undefined) inp.value = prevValues[i];
+        inp.addEventListener("input", () => KD.autoSizeYomiInput(inp));
+        KD.autoSizeYomiInput(inp);
         container.appendChild(inp);
       }
     });
   }
 
-  // 漢字の各文字について、まだ読みが空の入力欄だけkuromoji.jsの推定読みを補う。
-  // 手動で入力/修正済みの値は上書きしない(自動生成はあくまで下書き)。
+  // 漢字部分について、まだ読みが空の入力欄だけkuromoji.jsの推定読みを補う。
+  // 1文字ずつではなく、連続する漢字のまとまりごとにまとめて解析することで、
+  // 「興味」の「味」だけを見て「あじ」と誤読するようなことを避ける
+  // (KD.guessReadingsForChars参照)。手動で入力/修正済みの値は上書きしない。
   async function autofillReadings(container, text) {
     const chars = Array.from(text);
-    for (let i = 0; i < chars.length; i++) {
-      if (KD.isHiragana(chars[i])) continue;
+    const readings = await KD.guessReadingsForChars(chars);
+    chars.forEach((ch, i) => {
+      if (KD.isHiragana(ch)) return;
       const inp = container.querySelector(`.yomi-char-input[data-char-index="${i}"]`);
-      if (!inp || inp.value) continue;
-      const reading = await KD.guessReading(chars[i]);
-      if (!inp.isConnected || inp.value) continue;
-      if (reading) {
-        inp.value = reading;
-        scheduleRender();
+      if (!inp || !inp.isConnected || inp.value) return;
+      if (readings[i]) {
+        inp.value = readings[i];
+        KD.autoSizeYomiInput(inp);
       }
-    }
+    });
+    scheduleRender();
   }
 
   function addSlots(n) {
