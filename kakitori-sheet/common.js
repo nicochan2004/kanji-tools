@@ -140,11 +140,73 @@
     });
   }
 
+  // カタカナの読みを「モーラ(拍)」単位に分割する。拗音(ゃゅょ等)や長音(ー)は
+  // 直前のモーラにくっつける(例: "キョウミ" → ["キョ","ウ","ミ"])。
+  const SMALL_KANA = new Set(["ァ", "ィ", "ゥ", "ェ", "ォ", "ャ", "ュ", "ョ", "ヮ", "ぁ", "ぃ", "ぅ", "ぇ", "ぉ", "ゃ", "ゅ", "ょ", "ゎ"]);
+  function splitMorae(text) {
+    const chars = Array.from(text || "");
+    const morae = [];
+    chars.forEach((ch) => {
+      if ((ch === "ー" || SMALL_KANA.has(ch)) && morae.length > 0) {
+        morae[morae.length - 1] += ch;
+      } else {
+        morae.push(ch);
+      }
+    });
+    return morae;
+  }
+
+  // 与えられたモーラ列を、weights(各文字のおおよその音の長さ)の比率でN個に分配する。
+  // 例: モーラ["キョ","ウ","ミ"](3), weights=[2,2] → ["キョウ","ミ"]
+  function distributeMorae(morae, weights) {
+    const n = weights.length;
+    const totalWeight = weights.reduce((a, b) => a + b, 0) || n;
+    const counts = weights.map((w) => Math.max(1, Math.round((w / totalWeight) * morae.length)));
+    let diff = morae.length - counts.reduce((a, b) => a + b, 0);
+    let idx = n - 1;
+    while (diff !== 0 && idx >= 0) {
+      if (diff > 0) {
+        counts[idx] += 1;
+        diff -= 1;
+      } else if (counts[idx] > 1) {
+        counts[idx] -= 1;
+        diff += 1;
+      } else {
+        idx -= 1;
+      }
+    }
+    const result = [];
+    let pos = 0;
+    counts.forEach((c) => {
+      result.push(morae.slice(pos, pos + c).join(""));
+      pos += c;
+    });
+    return result;
+  }
+
+  // 各文字を単独でtokenizeした際の読みのモーラ数を、その文字のおおよその
+  // 「音の長さ」の目安として使う(読みの中身自体は不正確な場合があっても、
+  // 長さはそれなりに参考になることが多い)。単独では未知語になり読みが
+  // 取れない文字(「捨」等)は、他の文字の平均モーラ数で補う。
+  async function guessMoraCountsForChars(chars) {
+    const raw = [];
+    for (const ch of chars) {
+      const tokens = await guessReadingTokens(ch);
+      const reading = tokens.length > 0 ? tokens[0].reading || "" : "";
+      const count = splitMorae(reading).length;
+      raw.push(count > 0 ? count : null);
+    }
+    const known = raw.filter((c) => c !== null);
+    const avg = known.length > 0 ? Math.round(known.reduce((a, b) => a + b, 0) / known.length) : 1;
+    return raw.map((c) => (c !== null ? c : Math.max(1, avg)));
+  }
+
   // 文字配列(1単語ぶん)を受け取り、各文字位置に対応する読みの配列を返す。
   // ひらがな(送り仮名)はそのまま、それ以外は「連続する非ひらがなのまとまり」ごとに
-  // まとめてtokenizeし、形態素の文字数と読みの文字数が一致すれば1文字ずつ、
-  // 一致しなければその形態素の先頭文字に読み全体をまとめる(パターン②の
-  // フォールバックと同じ考え方)。
+  // まとめてtokenizeする(1文字ずつ個別に引くと「興味」の「味」だけを見て
+  // 「あじ」と誤読するため)。形態素の文字数と読みの文字数が一致すれば1文字ずつ、
+  // 一致しなければ(「興味→キョウミ」のように)モーラ単位で各文字の音の長さの
+  // 比率に応じて分配する(「興→キョウ」「味→ミ」のように)。
   async function guessReadingsForChars(chars) {
     const readings = new Array(chars.length).fill("");
     let i = 0;
@@ -156,19 +218,25 @@
       }
       let j = i;
       while (j < chars.length && !isHiragana(chars[j])) j += 1;
-      const runText = chars.slice(i, j).join("");
+      const runChars = chars.slice(i, j);
+      const runText = runChars.join("");
       const tokens = await guessReadingTokens(runText);
       let offset = i;
-      tokens.forEach((t) => {
+      for (const t of tokens) {
         const segChars = Array.from(t.surface || "");
         const segReadingChars = Array.from(t.reading || "");
-        if (segChars.length > 0 && segChars.length === segReadingChars.length) {
-          segChars.forEach((ch, k) => { readings[offset + k] = segReadingChars[k]; });
-        } else if (segChars.length > 0) {
-          readings[offset] = t.reading || "";
+        if (segChars.length === 0) {
+          continue;
+        } else if (segChars.length === 1 || segChars.length === segReadingChars.length) {
+          segChars.forEach((ch, k) => { readings[offset + k] = segReadingChars[k] || ""; });
+        } else {
+          const morae = splitMorae(t.reading || "");
+          const weights = await guessMoraCountsForChars(segChars);
+          const parts = distributeMorae(morae, weights);
+          parts.forEach((p, k) => { readings[offset + k] = p; });
         }
         offset += segChars.length;
-      });
+      }
       i = j;
     }
     return readings;
