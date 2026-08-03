@@ -164,7 +164,7 @@
     const cell = document.createElement("div");
     cell.className = "p2-yomi-cell";
     if (charInfo) {
-      cell.textContent = charInfo.reading;
+      cell.appendChild(KD.buildVerticalText(charInfo.reading));
       if (charInfo.isLastOfWord) cell.classList.add("p2-cell-strong");
     }
     return cell;

@@ -83,6 +83,16 @@ textarea#p3Sentences {
   width: 80px; height: 34px; font-size: 13px; color: #888; background: #f2f2f2; border-radius: 6px; box-sizing: border-box;
 }
 
+/* 縦書き表示(印刷/PDF化用): writing-modeに頼らず、1文字ずつのブロックを縦に積む。
+   KD.buildVerticalText参照。 */
+.kd-vertical-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.kd-vertical-text-char { line-height: 1.2; }
+
 .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .actions button {
   padding: 10px 16px; font-size: 14px; border-radius: 8px; border: none;
@@ -207,8 +217,6 @@ textarea#p3Sentences {
   justify-content: center;
   font-size: 11pt;
   color: #333;
-  writing-mode: vertical-rl;
-  text-orientation: upright;
 }
 .p1-col-yomi .p1-yomi-cell:first-child, .p2-col-yomi .p2-yomi-cell:first-child { margin-top: 0; }
 .p1-cell-strong, .p2-cell-strong { position: relative; z-index: 5; border-bottom: 3px solid #333 !important; }
@@ -238,11 +246,10 @@ textarea#p3Sentences {
   margin-bottom: 0.15cm;
 }
 .p3-char {
-  writing-mode: vertical-rl;
-  text-orientation: upright;
   font-size: 15pt;
   padding: 0.05cm 0;
   line-height: 1;
+  text-align: center;
 }
 .p3-answer-unit { display: flex; flex-direction: row; align-items: stretch; margin: 0.1cm 0; }
 .p3-answer-masus { display: flex; flex-direction: column; }
@@ -262,8 +269,6 @@ textarea#p3Sentences {
 }
 .p3-answer-num { font-size: 10pt; font-weight: bold; color: #2E5395; text-align: center; line-height: 1.2; }
 .p3-answer-yomi {
-  writing-mode: vertical-rl;
-  text-orientation: upright;
   font-size: 9.5pt;
   color: #333;
   flex: 1;

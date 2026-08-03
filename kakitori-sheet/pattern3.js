@@ -226,7 +226,7 @@
     sideCol.className = "p3-answer-side";
     const yomiEl = document.createElement("div");
     yomiEl.className = "p3-answer-yomi";
-    yomiEl.textContent = sel.readings.join("");
+    yomiEl.appendChild(KD.buildVerticalText(sel.readings.join("")));
     sideCol.appendChild(yomiEl);
 
     unit.appendChild(masusCol);

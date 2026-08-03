@@ -242,6 +242,22 @@
     return readings;
   }
 
+  // 縦書き表示: CSSの writing-mode: vertical-rl はPDF化に使うhtml2canvasで
+  // 正しく描画されない(PC上のプレビューでは縦書きに見えても、PDF化すると
+  // 横書きになってしまう)ため、CSSのwriting-modeには頼らず、1文字ずつ
+  // 要素に分けてflex-direction:columnで縦に積むことで縦書きを再現する。
+  function buildVerticalText(text, className) {
+    const wrap = document.createElement("div");
+    wrap.className = "kd-vertical-text" + (className ? " " + className : "");
+    Array.from(text || "").forEach((ch) => {
+      const charEl = document.createElement("div");
+      charEl.className = "kd-vertical-text-char";
+      charEl.textContent = ch;
+      wrap.appendChild(charEl);
+    });
+    return wrap;
+  }
+
   // 読み入力欄は「興味→キョウミ」のような複数文字の読みが1つの欄に入ることがあるため、
   // 内容に応じて幅を伸ばす。文字数の概算ではなく、実際のフォントでの描画幅を
   // canvasで計測して決める(全角カタカナの文字幅は概算だと誤差が出て見切れやすいため)。
@@ -388,6 +404,7 @@
     guessReadingTokens,
     guessReadingsForChars,
     autoSizeYomiInput,
+    buildVerticalText,
     circledNumber,
     fitPageToOnePage,
     fitAllPages,
