@@ -290,9 +290,12 @@
   // 用紙からあふれて2ページ目(ほぼ白紙)が生成されることがあるため、十分小さいサイズにする
   // (renshu-sheetで縦向きは実機検証済み。横向きの値は本アプリで新規に用意したもので、
   //  実機Safariでの確認がまだのため要注意)。
+  // sheetW/sheetHはjsPDFの unit:"mm" 設定に合わせてmm単位で持つ(CSS側は20.5cm等のcm指定)。
+  // 以前ここをcmの数値のままmmとして渡してしまい、PDF上で1/10サイズ(A4の中央に
+  // 豆粒のように小さく)描画されるバグがあったため、必ずmm単位で統一する。
   const PAGE_CONFIG = {
-    portrait: { orientation: "portrait", pdfW: 210, pdfH: 297, sheetW: 20.5, sheetH: 27.5 },
-    landscape: { orientation: "landscape", pdfW: 297, pdfH: 210, sheetW: 28.5, sheetH: 19.5 },
+    portrait: { orientation: "portrait", pdfW: 210, pdfH: 297, sheetW: 205, sheetH: 275 },
+    landscape: { orientation: "landscape", pdfW: 297, pdfH: 210, sheetW: 285, sheetH: 195 },
   };
 
   async function buildPdfDoc(previewEl, pageConfig) {
