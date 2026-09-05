@@ -31,6 +31,15 @@ body {
   font-size: 1.8rem;
 }
 
+.home-link {
+  display: inline-block;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  color: #888;
+  text-decoration: none;
+}
+.home-link:hover { text-decoration: underline; }
+
 .subtitle {
   margin: 0.3rem 0 0;
   color: #888;

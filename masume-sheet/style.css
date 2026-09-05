@@ -20,6 +20,14 @@ body {
 }
 .app-header h1 { margin: 0 0 4px; font-size: 20px; }
 .app-header .sub { margin: 0; font-size: 13px; color: #666; }
+.home-link {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #888;
+  text-decoration: none;
+}
+.home-link:hover { text-decoration: underline; }
 
 .input-area {
   padding: 8px 16px 16px;
