@@ -128,6 +128,32 @@
     return words;
   }
 
+  // ①とのデータ相互コピー用: 単語リストを丸ごと流し込む。既存の入力内容は消える。
+  // シートを埋めるまで自動追加されるスロット数の仕組みに合わせ、必要な行数
+  // (単語数+余裕分)を先にaddSlotsで確保してから、各行に値を書き戻す。
+  function setWords(words) {
+    unitsEl.innerHTML = "";
+    slotCount = 0;
+    addSlots(Math.max(INITIAL_SLOTS, words.length + MIN_TRAILING_EMPTY));
+    const rows = unitsEl.querySelectorAll(".word-input-row");
+    words.forEach((w, i) => {
+      const row = rows[i];
+      if (!row) return;
+      row.querySelector(".word-text-input").value = w.text;
+      const yomiContainer = row.querySelector(".yomi-inputs-container");
+      rebuildYomiInputs(yomiContainer, w.text);
+      Array.from(w.text).forEach((ch, ci) => {
+        if (KD.isHiragana(ch)) return;
+        const inp = yomiContainer.querySelector(`.yomi-char-input[data-char-index="${ci}"]`);
+        if (inp) {
+          inp.value = (w.readings && w.readings[ci]) || "";
+          KD.autoSizeYomiInput(inp);
+        }
+      });
+    });
+    ensureEnoughSlots();
+  }
+
   // 単語群を1つの文字ストリームに変換する。各文字がその単語の最後の文字かどうかを保持し、
   // 単語の境目(=次の単語に変わる直前)のマスだけ罫線を太くする判定に使う。
   function buildCharStream(words) {
@@ -297,6 +323,8 @@
     init,
     render,
     clear,
+    getWords,
+    setWords,
     pageConfig: () => KD.PAGE_CONFIG.portrait,
     filename: () => "なぞり漢字練習.pdf",
   };

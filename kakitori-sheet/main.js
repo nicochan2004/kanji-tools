@@ -6,6 +6,8 @@
   const pageSizeStyleEl = document.getElementById("pageSizeRule");
 
   const modules = { 1: window.KD_pattern1, 2: window.KD_pattern2, 3: window.KD_pattern3 };
+  const p1CopyToP2Btn = document.getElementById("p1CopyToP2Btn");
+  const p2CopyToP1Btn = document.getElementById("p2CopyToP1Btn");
 
   let tabs = null;
   function makeOnChange(key, renderFn) {
@@ -41,4 +43,20 @@
     mod.clear();
     mod.render();
   });
+
+  // ①②は単語の入力欄が全く同じ構造(漢字+読み)なので、片方で打ったデータを
+  // もう片方にそのまま流し込めるようにする。コピー先の既存内容は上書きされるため確認する。
+  function copyWords(fromMod, toMod, toTabKey) {
+    const words = fromMod.getWords();
+    if (words.length === 0) {
+      alert("コピーする内容がありません。");
+      return;
+    }
+    if (!confirm("コピー先の内容は上書きされます。よろしいですか？")) return;
+    toMod.setWords(words);
+    tabs.switchTo(toTabKey);
+  }
+
+  p1CopyToP2Btn.addEventListener("click", () => copyWords(modules[1], modules[2], modules[2].key));
+  p2CopyToP1Btn.addEventListener("click", () => copyWords(modules[2], modules[1], modules[1].key));
 })();
