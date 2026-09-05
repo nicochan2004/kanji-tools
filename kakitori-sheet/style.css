@@ -121,6 +121,16 @@ textarea#p3Sentences {
   cursor: pointer;
 }
 
+.p3-debug-preview {
+  margin: 0 16px 8px;
+  padding: 8px;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.p3-debug-preview img { display: block; max-width: 100%; height: auto; }
+.p3-debug-preview p { margin: 0 0 6px; font-size: 12px; color: #888; }
+
 /* パターン③: 文字クリック選択プレビュー */
 .select-preview {
   border: 1px solid #ccc; border-radius: 8px; padding: 10px;

@@ -11,6 +11,7 @@
   const resetPendingBtn = document.getElementById("p3ResetPendingBtn");
   const imageInputEl = document.getElementById("p3ImageInput");
   const ocrStatusEl = document.getElementById("p3OcrStatus");
+  const debugPreviewEl = document.getElementById("p3DebugPreview");
 
   let previewEl = null;
   let onChange = null;
@@ -175,7 +176,37 @@
     return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
   }
 
-  const OCR_DARK_THRESHOLD = 130;
+  // 大津の二値化法で、画像全体の輝度ヒストグラムから最適な閾値を自動的に求める。
+  // 固定閾値だと、撮影時の明るさ・コントラスト次第で文字と背景がほとんど
+  // 区別できなくなり(全部「明るい」判定になって列分割が機能しない等)、
+  // 精度が写真ごとに大きくばらつく原因になっていた。
+  function computeOtsuThreshold(imgData) {
+    const histogram = new Array(256).fill(0);
+    const data = imgData.data;
+    const total = imgData.width * imgData.height;
+    for (let i = 0; i < data.length; i += 4) {
+      const lum = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+      histogram[lum] += 1;
+    }
+    let sum = 0;
+    for (let t = 0; t < 256; t++) sum += t * histogram[t];
+    let sumB = 0, wB = 0, maxVar = 0, threshold = 128;
+    for (let t = 0; t < 256; t++) {
+      wB += histogram[t];
+      if (wB === 0) continue;
+      const wF = total - wB;
+      if (wF === 0) break;
+      sumB += t * histogram[t];
+      const mB = sumB / wB;
+      const mF = (sum - sumB) / wF;
+      const varBetween = wB * wF * (mB - mF) * (mB - mF);
+      if (varBetween > maxVar) {
+        maxVar = varBetween;
+        threshold = t;
+      }
+    }
+    return threshold;
+  }
 
   function cropCanvas(srcCanvas, x0, x1) {
     const w = x1 - x0 + 1;
@@ -187,17 +218,42 @@
     return dst;
   }
 
+  // 列分割の結果を、検出した列の境界を赤枠で重ねた画像として画面に表示する。
+  // OCRの精度が悪いとき、原因が「列分割自体がずれている」のか「分割は
+  // できているが文字認識が外れている」のかを見分けられるようにするための
+  // デバッグ用プレビュー。
+  function showDebugColumnPreview(srcCanvas, colRanges) {
+    const dbg = document.createElement("canvas");
+    dbg.width = srcCanvas.width;
+    dbg.height = srcCanvas.height;
+    const ctx = dbg.getContext("2d");
+    ctx.drawImage(srcCanvas, 0, 0);
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 3;
+    colRanges.forEach(([x0, x1]) => {
+      ctx.strokeRect(x0 + 1, 1, Math.max(1, x1 - x0 - 2), dbg.height - 2);
+    });
+    debugPreviewEl.innerHTML = "";
+    const label = document.createElement("p");
+    label.textContent = `検出した列: ${colRanges.length}個(赤枠)。文章や選択箇所が変なときは、ここが正しく列ごとに区切れているか確認してください。`;
+    const img = document.createElement("img");
+    img.src = dbg.toDataURL("image/png");
+    debugPreviewEl.appendChild(label);
+    debugPreviewEl.appendChild(img);
+    debugPreviewEl.hidden = false;
+  }
+
   // 元画像を二値化し、縦方向(X軸)の黒画素密度(プロジェクションプロファイル)を求め、
   // 密度がほぼ0(ただの余白)のX範囲を「列と列の間の隙間」とみなして、画像を
   // 縦書きの列ごとに分割する。複数列を一度にOCRへかけると精度が大きく落ちる
   // ため、列ごとに切り出して個別に処理する前段として使う。
-  function splitIntoColumns(imgData) {
+  function splitIntoColumns(imgData, darkThreshold) {
     const w = imgData.width, h = imgData.height;
     const density = new Array(w).fill(0);
     for (let x = 0; x < w; x++) {
       let count = 0;
       for (let y = 0; y < h; y++) {
-        if (isDarkPixel(imgData, x, y, OCR_DARK_THRESHOLD)) count += 1;
+        if (isDarkPixel(imgData, x, y, darkThreshold)) count += 1;
       }
       density[x] = count;
     }
@@ -229,7 +285,7 @@
   // 文字の外側(bboxよりさらに左)の細い帯だけを見て、その中で縦方向に連続する
   // 黒画素が文字の高さの大部分を占めるかをチェックする。手書きの傍線は文字の
   // 上端・下端を多少はみ出して引かれることが多いため、判定範囲は上下に少し広げる。
-  function hasVerticalLineLeftOf(imgData, box) {
+  function hasVerticalLineLeftOf(imgData, box, darkThreshold) {
     const boxW = box.x1 - box.x0;
     const boxH = box.y1 - box.y0;
     if (boxW <= 0 || boxH <= 0) return false;
@@ -241,7 +297,7 @@
     for (let x = Math.floor(bandX0); x <= Math.ceil(bandX1); x++) {
       let run = 0, maxRun = 0;
       for (let y = Math.floor(y0); y <= Math.ceil(y1); y++) {
-        if (isDarkPixel(imgData, x, y, OCR_DARK_THRESHOLD)) {
+        if (isDarkPixel(imgData, x, y, darkThreshold)) {
           run += 1;
           maxRun = Math.max(maxRun, run);
         } else {
@@ -296,16 +352,19 @@
 
   async function runOcrPipeline(file) {
     imageInputEl.disabled = true;
+    debugPreviewEl.hidden = true;
     try {
       setOcrStatus("画像を読み込み中…");
       const img = await loadImageFromFile(file);
       const srcCanvas = drawToCanvas(img);
       const origImgData = getImageData(srcCanvas);
+      const darkThreshold = computeOtsuThreshold(origImgData);
 
-      let colRanges = splitIntoColumns(origImgData);
+      let colRanges = splitIntoColumns(origImgData, darkThreshold);
       if (colRanges.length === 0) colRanges = [[0, srcCanvas.width - 1]];
       // 縦書きは右の列から読むため、x座標が大きい順(右→左)に並べ替える。
       colRanges.sort((a, b) => b[0] - a[0]);
+      showDebugColumnPreview(srcCanvas, colRanges);
 
       const worker = await getOcrWorker();
       const newSentences = [];
@@ -343,9 +402,9 @@
       columnChars.forEach((chars, sentenceIndex) => {
         let i = 0;
         while (i < chars.length) {
-          if (!hasVerticalLineLeftOf(origImgData, chars[i].box)) { i += 1; continue; }
+          if (!hasVerticalLineLeftOf(origImgData, chars[i].box, darkThreshold)) { i += 1; continue; }
           let j = i;
-          while (j + 1 < chars.length && hasVerticalLineLeftOf(origImgData, chars[j + 1].box)) j += 1;
+          while (j + 1 < chars.length && hasVerticalLineLeftOf(origImgData, chars[j + 1].box, darkThreshold)) j += 1;
           const selChars = chars.slice(i, j + 1).map((c2) => c2.text);
           newSelections.push({ id: idc++, sentenceIndex, start: i, end: j, readings: defaultReadings(selChars) });
           i = j + 1;
@@ -635,6 +694,8 @@
     state.selections = [];
     state.pending = null;
     setOcrStatus("");
+    debugPreviewEl.hidden = true;
+    debugPreviewEl.innerHTML = "";
   }
 
   function init(pv, changeCb) {
