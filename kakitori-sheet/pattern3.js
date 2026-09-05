@@ -97,6 +97,11 @@
   // 完結させるためTesseract.js(OCRライブラリ)を使う。縦書きはTesseractの
   // 標準的な横書き認識と相性が悪いため、画像を反時計回りに90度回転させて
   // 擬似的に横書きとして認識させ、得られた座標を元画像の座標系に逆変換して使う。
+  // さらに、複数の縦書きの列(文)が並んだ画像を一度にOCRへかけると、
+  // Tesseractの行/段落分割が複雑な縦書きレイアウトを正しく扱えず文字順序が
+  // 大きく乱れることが分かった(実例が報告されている)ため、まず画像を
+  // 縦方向のプロジェクションプロファイル(列と列の間の空白)で列ごとに分割し、
+  // 列(=1文)ごとに個別にOCRする。
   // 文字認識・傍線検出のどちらも完璧ではない前提の機能であり、読み取り後は
   // 必ずユーザーが内容を確認・修正する(選択部分は従来どおりクリックで直せる)。
 
@@ -116,11 +121,16 @@
     });
   }
 
+  // 列分割・傍線検出はピクセル単位で画像全体を走査するため、スマホ写真の
+  // フル解像度(4000px超が普通)のままだと処理が非常に重くなる。文字認識に
+  // 支障が出ない範囲まで縮小してから扱う。
+  const OCR_MAX_DIMENSION = 2000;
   function drawToCanvas(img) {
+    const scale = Math.min(1, OCR_MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
     const canvas = document.createElement("canvas");
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    canvas.getContext("2d").drawImage(img, 0, 0);
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
     return canvas;
   }
 
@@ -167,6 +177,53 @@
 
   const OCR_DARK_THRESHOLD = 130;
 
+  function cropCanvas(srcCanvas, x0, x1) {
+    const w = x1 - x0 + 1;
+    const h = srcCanvas.height;
+    const dst = document.createElement("canvas");
+    dst.width = w;
+    dst.height = h;
+    dst.getContext("2d").drawImage(srcCanvas, x0, 0, w, h, 0, 0, w, h);
+    return dst;
+  }
+
+  // 元画像を二値化し、縦方向(X軸)の黒画素密度(プロジェクションプロファイル)を求め、
+  // 密度がほぼ0(ただの余白)のX範囲を「列と列の間の隙間」とみなして、画像を
+  // 縦書きの列ごとに分割する。複数列を一度にOCRへかけると精度が大きく落ちる
+  // ため、列ごとに切り出して個別に処理する前段として使う。
+  function splitIntoColumns(imgData) {
+    const w = imgData.width, h = imgData.height;
+    const density = new Array(w).fill(0);
+    for (let x = 0; x < w; x++) {
+      let count = 0;
+      for (let y = 0; y < h; y++) {
+        if (isDarkPixel(imgData, x, y, OCR_DARK_THRESHOLD)) count += 1;
+      }
+      density[x] = count;
+    }
+    const maxDensity = Math.max(...density, 1);
+    const threshold = maxDensity * 0.02;
+    const minGap = Math.max(4, Math.round(w * 0.006));
+
+    const ranges = [];
+    let start = null;
+    let gapRun = 0;
+    for (let x = 0; x < w; x++) {
+      if (density[x] > threshold) {
+        if (start === null) start = x;
+        gapRun = 0;
+      } else if (start !== null) {
+        gapRun += 1;
+        if (gapRun >= minGap) {
+          ranges.push([start, x - gapRun]);
+          start = null;
+        }
+      }
+    }
+    if (start !== null) ranges.push([start, w - 1]);
+    return ranges;
+  }
+
   // 文字bbox(元画像座標系)の左側(縦書きで次に読む文字がある方向)に、傍線
   // (太い縦棒)があるかを判定する。文字本体のストロークと誤検出しないよう、
   // 文字の外側(bboxよりさらに左)の細い帯だけを見て、その中で縦方向に連続する
@@ -202,23 +259,24 @@
     return ocrWorker;
   }
 
-  // Tesseractの認識結果(階層構造: blocks > paragraphs > lines > words > symbols)
-  // から、1行(=縦書きの1列=1文)ごとに文字とbbox(回転前座標系)の配列を作る。
-  // Tesseract.jsのバージョンによってはblocksが返らない・symbolsまで
-  // 辿れないことがあるため、可能な限り深い粒度を試し、取れなければword単位
-  // (そのwordの文字をbbox幅で均等割りした位置)にフォールバックする。
-  function extractLinesFromOcrData(data, origW) {
+  // 1列ぶん(切り出して回転した画像)のTesseract認識結果(階層構造:
+  // blocks > paragraphs > lines > words > symbols)から、文字とbbox
+  // (その列の切り出し画像内での回転前座標系)をフラットな配列で返す。
+  // 上から下・左から右の順にそのまま辿れば、回転前の縦書きの正しい
+  // 読み順(列内は上→下)になる。Tesseract.jsのバージョンによっては
+  // symbolsまで辿れないことがあるため、取れなければword単位(そのwordの
+  // 文字をbbox幅で均等割りした位置)にフォールバックする。
+  function extractCharsFromColumnOcr(data, colW) {
     const blocks = data.blocks || (data.paragraphs ? [{ paragraphs: data.paragraphs }] : []);
-    const lines = [];
+    const chars = [];
     blocks.forEach((block) => {
       (block.paragraphs || []).forEach((para) => {
         (para.lines || []).forEach((line) => {
-          const chars = [];
           (line.words || []).forEach((word) => {
             if (word.symbols && word.symbols.length > 0) {
               word.symbols.forEach((sym) => {
                 if (!sym.text || !sym.text.trim()) return;
-                chars.push({ text: sym.text, box: rotatedBoxToOriginal(sym.bbox, origW) });
+                chars.push({ text: sym.text, box: rotatedBoxToOriginal(sym.bbox, colW) });
               });
             } else if (word.text && word.text.trim()) {
               const wChars = Array.from(word.text.trim());
@@ -226,15 +284,14 @@
               const step = (bbox.x1 - bbox.x0) / wChars.length;
               wChars.forEach((ch, i) => {
                 const sub = { x0: bbox.x0 + step * i, x1: bbox.x0 + step * (i + 1), y0: bbox.y0, y1: bbox.y1 };
-                chars.push({ text: ch, box: rotatedBoxToOriginal(sub, origW) });
+                chars.push({ text: ch, box: rotatedBoxToOriginal(sub, colW) });
               });
             }
           });
-          if (chars.length > 0) lines.push(chars);
         });
       });
     });
-    return lines;
+    return chars;
   }
 
   async function runOcrPipeline(file) {
@@ -243,31 +300,53 @@
       setOcrStatus("画像を読み込み中…");
       const img = await loadImageFromFile(file);
       const srcCanvas = drawToCanvas(img);
-      const rotated = rotateCanvasCCW90(srcCanvas);
-
-      setOcrStatus("文字を認識しています…(初回は辞書データの取得に時間がかかることがあります)");
-      const worker = await getOcrWorker();
-      const { data } = await worker.recognize(rotated, {}, { blocks: true });
-
       const origImgData = getImageData(srcCanvas);
-      const lines = extractLinesFromOcrData(data, srcCanvas.width);
 
-      if (lines.length === 0) {
+      let colRanges = splitIntoColumns(origImgData);
+      if (colRanges.length === 0) colRanges = [[0, srcCanvas.width - 1]];
+      // 縦書きは右の列から読むため、x座標が大きい順(右→左)に並べ替える。
+      colRanges.sort((a, b) => b[0] - a[0]);
+
+      const worker = await getOcrWorker();
+      const newSentences = [];
+      const columnChars = []; // 列(=文)ごとの文字配列(元画像全体の座標系のbox付き)
+
+      for (let c = 0; c < colRanges.length; c++) {
+        const [colX0, colX1] = colRanges[c];
+        setOcrStatus(
+          `文字を認識しています…(${c + 1}/${colRanges.length}列目。初回は辞書データの取得で時間がかかることがあります)`
+        );
+        const colCanvas = cropCanvas(srcCanvas, colX0, colX1);
+        const rotated = rotateCanvasCCW90(colCanvas);
+        const { data } = await worker.recognize(rotated, {}, { blocks: true });
+        const chars = extractCharsFromColumnOcr(data, colCanvas.width)
+          .filter((c2) => c2.text)
+          .map((c2) => ({
+            text: c2.text,
+            // 列の切り出し画像内の座標に、その列の元画像内でのオフセット(colX0)を
+            // 足して元画像全体の座標系に戻す(傍線検出は元画像のImageDataを使うため)。
+            box: { x0: c2.box.x0 + colX0, x1: c2.box.x1 + colX0, y0: c2.box.y0, y1: c2.box.y1 },
+          }));
+        if (chars.length === 0) continue;
+        columnChars.push(chars);
+        newSentences.push(chars.map((c2) => c2.text).join(""));
+      }
+
+      if (newSentences.length === 0) {
         alert("文字を読み取れませんでした。写真を変えるか、手入力してください。");
         setOcrStatus("");
         return;
       }
 
-      const newSentences = lines.map((chars) => chars.map((c) => c.text).join(""));
       const newSelections = [];
       let idc = 1;
-      lines.forEach((chars, sentenceIndex) => {
+      columnChars.forEach((chars, sentenceIndex) => {
         let i = 0;
         while (i < chars.length) {
           if (!hasVerticalLineLeftOf(origImgData, chars[i].box)) { i += 1; continue; }
           let j = i;
           while (j + 1 < chars.length && hasVerticalLineLeftOf(origImgData, chars[j + 1].box)) j += 1;
-          const selChars = chars.slice(i, j + 1).map((c) => c.text);
+          const selChars = chars.slice(i, j + 1).map((c2) => c2.text);
           newSelections.push({ id: idc++, sentenceIndex, start: i, end: j, readings: defaultReadings(selChars) });
           i = j + 1;
         }
