@@ -262,6 +262,10 @@
       } else {
         const c = document.createElement("div");
         c.className = "p3-char";
+        // 句読点のグリフは横書き用に左下寄りにデザインされているため、そのまま縦に
+        // 並べると縦書きなのに左下に見えてしまう。縦書きでの本来の位置(右下)に
+        // 近づくよう、視覚的に右へずらす。
+        if (chars[i] === "、" || chars[i] === "。") c.classList.add("p3-char-punct");
         c.textContent = chars[i];
         col.appendChild(c);
         i += 1;

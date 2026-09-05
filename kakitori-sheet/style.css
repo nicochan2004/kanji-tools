@@ -259,6 +259,9 @@ textarea#p3Sentences {
   line-height: 1;
   text-align: center;
 }
+.p3-char-punct {
+  transform: translateX(0.45em);
+}
 .p3-answer-unit { display: flex; flex-direction: row; align-items: stretch; margin: 0.1cm 0; }
 .p3-answer-masus { display: flex; flex-direction: column; }
 .p3-answer-masu { width: var(--masu-p3); height: var(--masu-p3); margin-top: -1px; }
