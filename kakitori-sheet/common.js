@@ -55,7 +55,7 @@
 
     const pathLayer = document.createElementNS(ns, "g");
     pathLayer.setAttribute("fill", "none");
-    pathLayer.setAttribute("stroke", "#A6A6A6");
+    pathLayer.setAttribute("stroke", "#CBCBCB");
     pathLayer.setAttribute("stroke-width", "3");
     pathLayer.setAttribute("stroke-linecap", "round");
     pathLayer.setAttribute("stroke-linejoin", "round");

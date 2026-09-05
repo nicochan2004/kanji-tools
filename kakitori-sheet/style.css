@@ -185,7 +185,7 @@ textarea#p3Sentences {
 .masu-char {
   position: relative; z-index: 2;
   font-family: "Hiragino Mincho ProN", "YuMincho", "MS Mincho", serif;
-  font-weight: 300; font-size: 1.75cm; color: #A6A6A6; line-height: 1;
+  font-weight: 300; font-size: 1.75cm; color: #CBCBCB; line-height: 1;
 }
 .masu-char-small { font-size: 1cm; }
 .masu-stroke { position: relative; z-index: 2; width: 88%; height: 88%; }
