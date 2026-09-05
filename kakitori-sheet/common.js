@@ -158,10 +158,29 @@
 
   // 与えられたモーラ列を、weights(各文字のおおよその音の長さ)の比率でN個に分配する。
   // 例: モーラ["キョ","ウ","ミ"](3), weights=[2,2] → ["キョウ","ミ"]
+  // weightsにnull(単独では読みが取れず長さ不明の文字)が混ざる場合は、既知分の
+  // モーラ数を差し引いた残りを不明な文字どうしで均等に割る(不明な文字も含めて
+  // 全体を比率配分すると、平均的な重みに引きずられて既知の文字の分配まで
+  // ズレてしまうため)。
   function distributeMorae(morae, weights) {
     const n = weights.length;
-    const totalWeight = weights.reduce((a, b) => a + b, 0) || n;
-    const counts = weights.map((w) => Math.max(1, Math.round((w / totalWeight) * morae.length)));
+    const knownSum = weights.reduce((sum, w) => sum + (w != null ? w : 0), 0);
+    const unknownCount = weights.filter((w) => w == null).length;
+    let counts;
+    if (unknownCount > 0) {
+      const remaining = Math.max(unknownCount, morae.length - knownSum);
+      const base = Math.floor(remaining / unknownCount);
+      let extra = remaining - base * unknownCount;
+      counts = weights.map((w) => {
+        if (w != null) return w;
+        const c = base + (extra > 0 ? 1 : 0);
+        if (extra > 0) extra -= 1;
+        return Math.max(1, c);
+      });
+    } else {
+      const totalWeight = knownSum || n;
+      counts = weights.map((w) => Math.max(1, Math.round((w / totalWeight) * morae.length)));
+    }
     let diff = morae.length - counts.reduce((a, b) => a + b, 0);
     let idx = n - 1;
     while (diff !== 0 && idx >= 0) {
@@ -187,7 +206,12 @@
   // 各文字を単独でtokenizeした際の読みのモーラ数を、その文字のおおよその
   // 「音の長さ」の目安として使う(読みの中身自体は不正確な場合があっても、
   // 長さはそれなりに参考になることが多い)。単独では未知語になり読みが
-  // 取れない文字(「捨」等)は、他の文字の平均モーラ数で補う。
+  // 取れない文字(「以」等、接続語的な漢字に多い)はnullのまま返す。
+  // ここを他の文字の平均モーラ数で埋めてしまうと、実際には短い(1モーラ程度の)
+  // ことが多い未知語の文字が過大に見積もられ、既知の文字の分配までズレる
+  // (例:「以降」で降=2モーラのところ平均2で埋めた「以」と半分ずつになり、
+  // 「以→イコ」「降→ウ」のように誤る)ため、不明なものは呼び出し側
+  // (distributeMorae)で「残りのモーラ数を均等に割る」形で扱う。
   async function guessMoraCountsForChars(chars) {
     const raw = [];
     for (const ch of chars) {
@@ -196,9 +220,7 @@
       const count = splitMorae(reading).length;
       raw.push(count > 0 ? count : null);
     }
-    const known = raw.filter((c) => c !== null);
-    const avg = known.length > 0 ? Math.round(known.reduce((a, b) => a + b, 0) / known.length) : 1;
-    return raw.map((c) => (c !== null ? c : Math.max(1, avg)));
+    return raw;
   }
 
   // 文字配列(1単語ぶん)を受け取り、各文字位置に対応する読みの配列を返す。
@@ -227,7 +249,11 @@
         const segReadingChars = Array.from(t.reading || "");
         if (segChars.length === 0) {
           continue;
-        } else if (segChars.length === 1 || segChars.length === segReadingChars.length) {
+        } else if (segChars.length === 1) {
+          // 1文字の形態素は、読みが複数文字(複数モーラ)でもそのまま丸ごと割り当てる。
+          // segReadingChars[0]だけを取ると「窓(マド)」が「マ」に切り詰められてしまう。
+          readings[offset] = t.reading || "";
+        } else if (segChars.length === segReadingChars.length) {
           segChars.forEach((ch, k) => { readings[offset + k] = segReadingChars[k] || ""; });
         } else {
           const morae = splitMorae(t.reading || "");
