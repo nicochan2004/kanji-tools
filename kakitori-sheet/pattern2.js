@@ -7,6 +7,9 @@
 (() => {
   const INITIAL_SLOTS = 20;
   const SLOT_STEP = 10;
+  // 末尾の未入力スロットがこの数を下回ったら自動で追加する。0にすると「入力欄が
+  // 尽きて次が書けない」体験になるため、常に数個分の余裕を持たせておく。
+  const MIN_TRAILING_EMPTY = 3;
 
   const unitsEl = document.getElementById("p2Units");
   const colsEl = document.getElementById("p2Cols");
@@ -92,6 +95,7 @@
         const text = wordInput.value.trim();
         rebuildYomiInputs(yomiContainer, text);
         autofillReadings(yomiContainer, text);
+        ensureEnoughSlots();
         scheduleRender();
       };
       wordInput.addEventListener("input", (e) => {
@@ -135,6 +139,32 @@
       });
     });
     return stream;
+  }
+
+  // 末尾から連続する未入力スロットの数を数える。
+  function countTrailingEmptySlots() {
+    const rows = Array.from(unitsEl.querySelectorAll(".word-input-row"));
+    let count = 0;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].querySelector(".word-text-input").value.trim()) break;
+      count += 1;
+    }
+    return count;
+  }
+
+  // シート1ページ分(cols×rows)がまだ埋まっていない間は、末尾の空きスロットが
+  // 減るたびに自動で補充し、ユーザーが「枠を追加」ボタンを押さなくても
+  // シートが埋まるまで入力を続けられるようにする。1ページ分に達したら、
+  // 複数ページ目を作るかどうかはユーザーの意思(手動の「枠を追加」)に委ねる。
+  function ensureEnoughSlots() {
+    const cols = Math.max(1, Math.min(10, Number(colsEl.value) || 6));
+    const rowsCount = Math.max(1, Math.min(20, Number(rowsEl.value) || 11));
+    const capacity = cols * rowsCount;
+    const charCount = buildCharStream(getWords()).length;
+    if (charCount >= capacity) return;
+    if (countTrailingEmptySlots() < MIN_TRAILING_EMPTY) {
+      addSlots(SLOT_STEP);
+    }
   }
 
   function paginateStream(stream, capacity) {
@@ -257,8 +287,8 @@
     onChange = changeCb;
     addSlots(INITIAL_SLOTS);
     unitsEl.addEventListener("input", scheduleRender);
-    colsEl.addEventListener("input", scheduleRender);
-    rowsEl.addEventListener("input", scheduleRender);
+    colsEl.addEventListener("input", () => { ensureEnoughSlots(); scheduleRender(); });
+    rowsEl.addEventListener("input", () => { ensureEnoughSlots(); scheduleRender(); });
     addBtn.addEventListener("click", () => addSlots(SLOT_STEP));
   }
 
