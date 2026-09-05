@@ -1,11 +1,16 @@
 (() => {
-  const TOTAL_SLOTS = 18;
+  const TOTAL_SLOTS = 21;
   const PER_PAGE = 3;
   const MASU_PER_WORD = 9;
   const SENTENCE_ROWS = 25;
 
   const KVG_BASE = "https://cdn.jsdelivr.net/gh/KanjiVG/kanjivg/kanji/";
   const kvgCache = new Map(); // char -> Promise<{viewBox, paths:[d...], numbers:[{x,y,label}]} | null>
+  // render()で描画されたストローク差し替え(fetch→DOM反映)のPromiseを集約する。
+  // PDF化する前にこれを全て待たないと、iPhone等では未反映のままキャンバス化されるだけでなく、
+  // 大量のfetch/DOM書き換えとhtml2canvasの重い処理が同時に走ってメインスレッドが詰まり、
+  // フリーズの一因になっていたため、render()完了ごとに配列を張り替えて追跡する。
+  let pendingStrokeRenders = [];
 
   const inputGroupsEl = document.getElementById("inputGroups");
   const previewEl = document.getElementById("preview");
@@ -253,7 +258,7 @@
 
     charTargets.forEach(({ container, ch, small }) => {
       const showNumbers = isKanji(ch); // 番号表示は漢字のみ。ひらがな等も同じ線の細さで統一する
-      fetchKvg(ch).then((data) => {
+      const p = fetchKvg(ch).then((data) => {
         if (!data) return; // 取得失敗時はプレーンな文字表示のまま
         const charEl = container.querySelector(".masu-char");
         if (charEl) charEl.remove();
@@ -262,6 +267,7 @@
         wrap.appendChild(buildStrokeSvg(data, showNumbers));
         container.appendChild(wrap);
       });
+      pendingStrokeRenders.push(p);
     });
 
     return unit;
@@ -330,10 +336,19 @@
   const PDF_PAGE_H_MM = 297; // A4
   const SHEET_W_MM = 205; // .sheet-pageのwidth(20.5cm)と一致させる
   const SHEET_H_MM = 275; // .sheet-pageのheight(27.5cm)と一致させる
+  // scale:2だとページ数が多い(特に21問=7ページ)場合にcanvas生成の負荷が積み重なり、
+  // iPhone(特に非力な機種)でメインスレッドが詰まってフリーズする実例があったため、
+  // 印刷用途で許容できる範囲まで下げる。
+  const PDF_RENDER_SCALE = 1.5;
 
-  async function buildPdfDoc() {
+  async function buildPdfDoc(onProgress) {
     const pages = previewEl.querySelectorAll(".sheet-page");
     if (pages.length === 0) return null;
+    // KVGストロークのfetch→DOM反映(pendingStrokeRenders)が終わる前にキャンバス化すると、
+    // ストロークが未反映のまま出力されるだけでなく、大量のfetch/DOM書き換えと
+    // html2canvasの重い処理が同時に走ってメインスレッドが詰まる一因にもなっていたため、
+    // 必ず全て完了させてから進める。
+    await Promise.all(pendingStrokeRenders);
     fitAllPages();
     await new Promise((resolve) => requestAnimationFrame(resolve));
     const { jsPDF } = window.jspdf;
@@ -341,10 +356,17 @@
     const offsetX = (PDF_PAGE_W_MM - SHEET_W_MM) / 2;
     const offsetY = (PDF_PAGE_H_MM - SHEET_H_MM) / 2;
     for (let i = 0; i < pages.length; i++) {
-      const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: "#ffffff" });
+      if (onProgress) onProgress(i + 1, pages.length);
+      const canvas = await html2canvas(pages[i], { scale: PDF_RENDER_SCALE, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      // canvasを使い終わったらすぐサイズを0にして参照を解放する。ページ数が多いと
+      // iOS SafariはGCが追いつかずメモリ逼迫でタブごと落ちる(フリーズに見える)ことがある。
+      canvas.width = 0;
+      canvas.height = 0;
       if (i > 0) pdf.addPage();
       pdf.addImage(imgData, "JPEG", offsetX, offsetY, SHEET_W_MM, SHEET_H_MM);
+      // 1ページ処理するごとにメインスレッドを1度解放し、描画やGCに余裕を与える
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
     return pdf;
   }
@@ -367,7 +389,9 @@
     pdfBtn.disabled = true;
     pdfBtn.textContent = "準備中...";
     try {
-      const pdf = await buildPdfDoc();
+      const pdf = await buildPdfDoc((done, total) => {
+        pdfBtn.textContent = `準備中(${done}/${total})...`;
+      });
       const url = URL.createObjectURL(pdf.output("blob"));
       if (win) {
         win.location.href = url;
@@ -389,6 +413,7 @@
   }
 
   function render() {
+    pendingStrokeRenders = [];
     const words = getWords();
     let lastFilled = -1;
     words.forEach((w, i) => { if (w) lastFilled = i; });
