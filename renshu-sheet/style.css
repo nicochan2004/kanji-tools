@@ -104,6 +104,9 @@ body {
   box-shadow: 0 1px 6px rgba(0,0,0,0.25);
   flex-shrink: 0;
   position: relative;
+  /* fitPageToOnePage()のzoom縮小がhtml2canvas等で正しく解釈されなかった場合の保険。
+     縮小前の実寸コンテンツがはみ出てもここで切り詰め、巨大なキャンバス化を防ぐ。 */
+  overflow: hidden;
 }
 
 .page-header {

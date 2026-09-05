@@ -357,7 +357,27 @@
     const offsetY = (PDF_PAGE_H_MM - SHEET_H_MM) / 2;
     for (let i = 0; i < pages.length; i++) {
       if (onProgress) onProgress(i + 1, pages.length);
-      const canvas = await html2canvas(pages[i], { scale: PDF_RENDER_SCALE, backgroundColor: "#ffffff" });
+      const canvas = await html2canvas(pages[i], {
+        scale: PDF_RENDER_SCALE,
+        backgroundColor: "#ffffff",
+        // html2canvasは非標準CSSプロパティのzoomを解釈できず、fitPageToOnePage()が
+        // 縮小に使っているzoomを無視して等倍(縮小前の実寸)でレイアウトしてしまう。
+        // .sheet-pageはoverflow指定がないため、縮小されるはずだった分だけ本来より
+        // 大きなキャンバスを生成しようとし、ページ数が多いほど(複数枚印刷するほど)
+        // 積み重なってiPhoneのメモリを圧迫しフリーズしていた。キャプチャ用に複製された
+        // DOMだけzoomをtransform:scaleへ置き換えることで、画面表示用のzoomはそのままに
+        // html2canvasにも正しい縮小サイズでレンダリングさせる。
+        onclone: (_doc, clonedPage) => {
+          const clonedInner = clonedPage.querySelector(".page-inner");
+          if (!clonedInner) return;
+          const z = parseFloat(clonedInner.style.zoom);
+          if (z && z !== 1) {
+            clonedInner.style.zoom = 1;
+            clonedInner.style.transform = `scale(${z})`;
+            clonedInner.style.transformOrigin = "top left";
+          }
+        },
+      });
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       // canvasを使い終わったらすぐサイズを0にして参照を解放する。ページ数が多いと
       // iOS SafariはGCが追いつかずメモリ逼迫でタブごと落ちる(フリーズに見える)ことがある。
