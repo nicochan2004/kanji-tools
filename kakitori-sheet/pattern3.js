@@ -9,10 +9,13 @@
   const selectPreviewEl = document.getElementById("p3SelectPreview");
   const selectionListEl = document.getElementById("p3SelectionList");
   const resetPendingBtn = document.getElementById("p3ResetPendingBtn");
+  const imageInputEl = document.getElementById("p3ImageInput");
+  const ocrStatusEl = document.getElementById("p3OcrStatus");
 
   let previewEl = null;
   let onChange = null;
   let nextId = 1;
+  let ocrWorker = null;
 
   const state = {
     sentences: [],
@@ -85,6 +88,208 @@
     if (changed) {
       renderSelectionList();
       renderPrintPreview();
+    }
+  }
+
+  // ===== 写真からの読み取り(OCR + 傍線検出) =====
+  // 縦書きの文章を撮影した写真から、文字認識(OCR)と傍線(縦線)の検出を行い、
+  // 自動的に文章と選択済み(=問題化したい)範囲を組み立てる。ブラウザ内で
+  // 完結させるためTesseract.js(OCRライブラリ)を使う。縦書きはTesseractの
+  // 標準的な横書き認識と相性が悪いため、画像を反時計回りに90度回転させて
+  // 擬似的に横書きとして認識させ、得られた座標を元画像の座標系に逆変換して使う。
+  // 文字認識・傍線検出のどちらも完璧ではない前提の機能であり、読み取り後は
+  // 必ずユーザーが内容を確認・修正する(選択部分は従来どおりクリックで直せる)。
+
+  function setOcrStatus(text) {
+    if (!text) { ocrStatusEl.hidden = true; ocrStatusEl.textContent = ""; return; }
+    ocrStatusEl.hidden = false;
+    ocrStatusEl.textContent = text;
+  }
+
+  function loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  function drawToCanvas(img) {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    canvas.getContext("2d").drawImage(img, 0, 0);
+    return canvas;
+  }
+
+  // 縦書き(列は右→左、列内は上→下)を、Tesseractが得意な横書き風の並びに
+  // 変換するため反時計回りに90度回転する。回転後は「列の順序(右→左)」が
+  // 「行の順序(上→下)」に、「列内の文字順(上→下)」が「行内の文字順(左→右)」
+  // になるので、Tesseractの通常の行認識でも縦書きの読み順どおりに文字が並ぶ。
+  function rotateCanvasCCW90(srcCanvas) {
+    const w = srcCanvas.width, h = srcCanvas.height;
+    const dst = document.createElement("canvas");
+    dst.width = h;
+    dst.height = w;
+    const ctx = dst.getContext("2d");
+    ctx.translate(0, w);
+    ctx.rotate(-Math.PI / 2);
+    ctx.drawImage(srcCanvas, 0, 0);
+    return dst;
+  }
+
+  function getImageData(canvas) {
+    return canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+  }
+
+  function isDarkPixel(imgData, x, y, threshold) {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= imgData.width || y >= imgData.height) return false;
+    const idx = (y * imgData.width + x) * 4;
+    const lum = 0.299 * imgData.data[idx] + 0.587 * imgData.data[idx + 1] + 0.114 * imgData.data[idx + 2];
+    return lum < threshold;
+  }
+
+  // rotateCanvasCCW90(translate(0,w)してからrotate(-90°))は、元画像上の点(x,y)を
+  // 回転後の点(y, w-x) (wは回転前の幅)に写す。その逆変換は
+  // 回転後(rx,ry) -> 回転前(w-ry, rx)。bboxは向きが変わるため、
+  // 4隅すべてを変換してから外接矩形を取る。
+  function rotatedBoxToOriginal(box, origW) {
+    const corners = [
+      [box.x0, box.y0], [box.x1, box.y0], [box.x0, box.y1], [box.x1, box.y1],
+    ].map(([rx, ry]) => [origW - ry, rx]);
+    const xs = corners.map((c) => c[0]);
+    const ys = corners.map((c) => c[1]);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  }
+
+  const OCR_DARK_THRESHOLD = 130;
+
+  // 文字bbox(元画像座標系)の左側(縦書きで次に読む文字がある方向)に、傍線
+  // (太い縦棒)があるかを判定する。文字本体のストロークと誤検出しないよう、
+  // 文字の外側(bboxよりさらに左)の細い帯だけを見て、その中で縦方向に連続する
+  // 黒画素が文字の高さの大部分を占めるかをチェックする。手書きの傍線は文字の
+  // 上端・下端を多少はみ出して引かれることが多いため、判定範囲は上下に少し広げる。
+  function hasVerticalLineLeftOf(imgData, box) {
+    const boxW = box.x1 - box.x0;
+    const boxH = box.y1 - box.y0;
+    if (boxW <= 0 || boxH <= 0) return false;
+    const bandX0 = box.x0 - boxW * 0.6;
+    const bandX1 = box.x0 - boxW * 0.1;
+    const padY = boxH * 0.2;
+    const y0 = box.y0 - padY, y1 = box.y1 + padY;
+    let bestRun = 0;
+    for (let x = Math.floor(bandX0); x <= Math.ceil(bandX1); x++) {
+      let run = 0, maxRun = 0;
+      for (let y = Math.floor(y0); y <= Math.ceil(y1); y++) {
+        if (isDarkPixel(imgData, x, y, OCR_DARK_THRESHOLD)) {
+          run += 1;
+          maxRun = Math.max(maxRun, run);
+        } else {
+          run = 0;
+        }
+      }
+      bestRun = Math.max(bestRun, maxRun);
+    }
+    return bestRun >= boxH * 0.6;
+  }
+
+  async function getOcrWorker() {
+    if (ocrWorker) return ocrWorker;
+    ocrWorker = await Tesseract.createWorker("jpn");
+    return ocrWorker;
+  }
+
+  // Tesseractの認識結果(階層構造: blocks > paragraphs > lines > words > symbols)
+  // から、1行(=縦書きの1列=1文)ごとに文字とbbox(回転前座標系)の配列を作る。
+  // Tesseract.jsのバージョンによってはblocksが返らない・symbolsまで
+  // 辿れないことがあるため、可能な限り深い粒度を試し、取れなければword単位
+  // (そのwordの文字をbbox幅で均等割りした位置)にフォールバックする。
+  function extractLinesFromOcrData(data, origW) {
+    const blocks = data.blocks || (data.paragraphs ? [{ paragraphs: data.paragraphs }] : []);
+    const lines = [];
+    blocks.forEach((block) => {
+      (block.paragraphs || []).forEach((para) => {
+        (para.lines || []).forEach((line) => {
+          const chars = [];
+          (line.words || []).forEach((word) => {
+            if (word.symbols && word.symbols.length > 0) {
+              word.symbols.forEach((sym) => {
+                if (!sym.text || !sym.text.trim()) return;
+                chars.push({ text: sym.text, box: rotatedBoxToOriginal(sym.bbox, origW) });
+              });
+            } else if (word.text && word.text.trim()) {
+              const wChars = Array.from(word.text.trim());
+              const bbox = word.bbox;
+              const step = (bbox.x1 - bbox.x0) / wChars.length;
+              wChars.forEach((ch, i) => {
+                const sub = { x0: bbox.x0 + step * i, x1: bbox.x0 + step * (i + 1), y0: bbox.y0, y1: bbox.y1 };
+                chars.push({ text: ch, box: rotatedBoxToOriginal(sub, origW) });
+              });
+            }
+          });
+          if (chars.length > 0) lines.push(chars);
+        });
+      });
+    });
+    return lines;
+  }
+
+  async function runOcrPipeline(file) {
+    imageInputEl.disabled = true;
+    try {
+      setOcrStatus("画像を読み込み中…");
+      const img = await loadImageFromFile(file);
+      const srcCanvas = drawToCanvas(img);
+      const rotated = rotateCanvasCCW90(srcCanvas);
+
+      setOcrStatus("文字を認識しています…(初回は辞書データの取得に時間がかかることがあります)");
+      const worker = await getOcrWorker();
+      const { data } = await worker.recognize(rotated, {}, { blocks: true });
+
+      const origImgData = getImageData(srcCanvas);
+      const lines = extractLinesFromOcrData(data, srcCanvas.width);
+
+      if (lines.length === 0) {
+        alert("文字を読み取れませんでした。写真を変えるか、手入力してください。");
+        setOcrStatus("");
+        return;
+      }
+
+      const newSentences = lines.map((chars) => chars.map((c) => c.text).join(""));
+      const newSelections = [];
+      let idc = 1;
+      lines.forEach((chars, sentenceIndex) => {
+        let i = 0;
+        while (i < chars.length) {
+          if (!hasVerticalLineLeftOf(origImgData, chars[i].box)) { i += 1; continue; }
+          let j = i;
+          while (j + 1 < chars.length && hasVerticalLineLeftOf(origImgData, chars[j + 1].box)) j += 1;
+          const selChars = chars.slice(i, j + 1).map((c) => c.text);
+          newSelections.push({ id: idc++, sentenceIndex, start: i, end: j, readings: defaultReadings(selChars) });
+          i = j + 1;
+        }
+      });
+
+      sentencesEl.value = newSentences.join("\n");
+      state.sentences = newSentences;
+      state.selections = newSelections;
+      state.pending = null;
+      rerenderAll();
+      newSelections.forEach((sel) => autofillSelectionReadings(sel));
+
+      setOcrStatus(
+        `読み取り完了: ${newSentences.length}文、${newSelections.length}箇所を問題として検出しました。` +
+        `内容と選択箇所を確認し、違っていればクリックで直接修正してください。`
+      );
+    } catch (e) {
+      alert("読み取りに失敗しました。写真を変えるか、手入力してください。");
+      setOcrStatus("");
+    } finally {
+      imageInputEl.disabled = false;
+      imageInputEl.value = "";
     }
   }
 
@@ -350,6 +555,7 @@
     state.sentences = [];
     state.selections = [];
     state.pending = null;
+    setOcrStatus("");
   }
 
   function init(pv, changeCb) {
@@ -359,6 +565,10 @@
     resetPendingBtn.addEventListener("click", () => {
       state.pending = null;
       rerenderAll();
+    });
+    imageInputEl.addEventListener("change", () => {
+      const file = imageInputEl.files && imageInputEl.files[0];
+      if (file) runOcrPipeline(file);
     });
   }
 

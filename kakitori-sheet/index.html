@@ -54,6 +54,12 @@
     <section id="pattern3Area" class="input-area no-print" hidden>
       <p class="sub">文章を入力し、漢字にしたい部分をクリックして選択すると、穴埋めテストを作れます(A4横向き)。</p>
       <div class="field-row">
+        <label for="p3ImageInput" class="secondary p3-photo-btn">📷 写真から読み取る</label>
+        <input id="p3ImageInput" type="file" accept="image/*" capture="environment" hidden>
+      </div>
+      <p id="p3OcrStatus" class="hint" hidden></p>
+      <p class="hint">※写真から読み取ると、傍線がついている部分を自動で問題として選択します(文字認識・傍線検出には誤りが起こりえます。読み取り後は内容と選択箇所を必ず確認し、違っていればクリックで直接修正してください)。</p>
+      <div class="field-row">
         <label for="p3Sentences">文章(1行に1文)</label>
       </div>
       <textarea id="p3Sentences" rows="4" placeholder="はをかむ&#10;クルマにのる"></textarea>
@@ -75,6 +81,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
   <script src="common.js"></script>
   <script src="pattern1.js"></script>
   <script src="pattern2.js"></script>
